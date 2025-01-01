@@ -11,6 +11,27 @@
 #include "tree-pretty-print.h"
 #include "tree-iterator.h"
 
+int cnt = 0;
+
+#define FUNCSTART                                                                                  \
+    do {                                                                                           \
+        cnt++;                                                                                     \
+    } while (0);
+
+#define FUNCEND                                                                                    \
+    do {                                                                                           \
+        cnt--;                                                                                     \
+    } while (0);
+
+#define print(str)                                                                                 \
+    do {                                                                                           \
+        int ___i = 0;                                                                              \
+        for (; ___i < cnt; ___i++) {                                                               \
+            std::cout << "  ";                                                                     \
+        }                                                                                          \
+        std::cout << str << "\n";                                                                  \
+    } while (0)
+
 // we have to specify plugin_is_GPL_compatible for every plugin
 // if it is not defined a compilation error will follow later.
 int plugin_is_GPL_compatible;
@@ -19,7 +40,7 @@ static void traverse_tree(tree node);
 
 static void print_qualifiers(tree node) {
     if (TYPE_QUALS(node) & TYPE_QUAL_CONST) {
-        std::cout << "const ";
+        print("const ");
     }
     // other qualifiers ...
 }
@@ -27,40 +48,41 @@ static void print_qualifiers(tree node) {
 static void print_integer(tree integer) {
     switch (TYPE_PRECISION(integer)) {
     case 8:
-        std::cout << "char";
+        print("char");
         break;
     case 16:
-        std::cout << "short";
+        print("short");
         break;
     case 32:
-        std::cout << "int";
+        print("int");
         break;
     case 64:
-        std::cout << "long long";
+        print("long long");
         break;
     default:
-        std::cout << "unknown integer type with precision: " << TYPE_PRECISION(integer);
+        print("unknown integer type with precision: " << TYPE_PRECISION(integer));
     }
 }
 
 static void print_floating_point(tree floating_point) {
     if (TYPE_PRECISION(floating_point) == 32) {
-        std::cout << "float";
+        print("float");
     } else if (TYPE_PRECISION(floating_point) == 64) {
-        std::cout << "double";
+        print("double");
     } else {
-        std::cout << "Floating point type with precision " << TYPE_PRECISION(floating_point);
+        print("Floating point type with precision " << TYPE_PRECISION(floating_point));
     }
 }
 
 static void print_function_arguments(tree type);
 static void print_type(tree type) {
+    // print(" type: " << get_tree_code_name(TREE_CODE(type)));
     print_qualifiers(type);
 
     switch (TREE_CODE(type)) {
     case INTEGER_TYPE: {
         if (TYPE_UNSIGNED(type)) {
-            std::cout << "unsigned ";
+            print("unsigned ");
         }
         print_integer(type);
     } break;
@@ -69,28 +91,28 @@ static void print_type(tree type) {
         break;
     case POINTER_TYPE:
         print_type(TREE_TYPE(type));
-        std::cout << '*';
+        print('*');
         break;
     case ARRAY_TYPE:
         print_type(TREE_TYPE(type));
-        std::cout << "[]";
+        print("[]");
         break;
     case RECORD_TYPE: // classes and structs
         if (TYPE_NAME(type) && TREE_CODE(TYPE_NAME(type)) == TYPE_DECL) {
-            std::cout << IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(type)));
+            print(IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(type))));
         } else {
-            std::cout << "unnamed struct or class";
+            print("unnamed struct or class");
         }
         break;
     case UNION_TYPE:
         if (TYPE_NAME(type) && TREE_CODE(TYPE_NAME(type)) == TYPE_DECL) {
-            std::cout << IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(type)));
+            print(IDENTIFIER_POINTER(DECL_NAME(TYPE_NAME(type))));
         } else {
-            std::cout << "unnamed union";
+            print("unnamed union");
         }
         break;
     case VOID_TYPE:
-        std::cout << "void";
+        print("void");
         break;
     case FUNCTION_TYPE:
         print_type(TREE_TYPE(type));
@@ -98,60 +120,58 @@ static void print_type(tree type) {
         break;
     case REFERENCE_TYPE:
         print_type(TREE_TYPE(type));
-        std::cout << '&';
+        print('&');
         break;
+
     default:
-        std::cout << "unknown type: " << get_tree_code_name(TREE_CODE(type));
+        print("unknown type: " << get_tree_code_name(TREE_CODE(type)));
         break;
     }
-    std::cout << ' ';
+    print(' ');
 }
 
 static void print_function_arguments(tree type) {
     if (TREE_CODE(type) == FUNCTION_TYPE) {
-        std::cout << " args: (";
+        print(" args: (");
         for (tree arg = TYPE_ARG_TYPES(type); arg; arg = TREE_CHAIN(arg)) {
             print_type(TREE_VALUE(arg));
             if (TREE_CHAIN(arg)) {
-                std::cout << ", ";
+                print(", ");
             }
         }
-        std::cout << ")";
+        print(")");
     }
 }
 
 static void print_call_expression(tree node) {
     tree call_expr_fn = CALL_EXPR_FN(node);
     tree func_decl = TREE_OPERAND(call_expr_fn, 0);
-    std::cout << "callee: '" << IDENTIFIER_POINTER(DECL_NAME(func_decl)) << "'\n";
-    char *func = "funcdddd";
+    char func[] = "funcdddd";
     if (!memcmp(IDENTIFIER_POINTER(DECL_NAME(func_decl)), func, strlen(func))) {
-        std::cout << "00000000000000000000";
+        print(IDENTIFIER_POINTER(DECL_NAME(func_decl)));
     }
 
     const std::size_t argc = call_expr_nargs(node);
-    std::cout << "arg count: " << argc << '\n';
     for (int i = 0; i < call_expr_nargs(node); ++i) {
+        print("arg" << i);
         traverse_tree(CALL_EXPR_ARG(node, i));
     }
 
     tree return_type = TREE_TYPE(TREE_TYPE(func_decl));
-    std::cout << "returns: " << get_tree_code_name(TREE_CODE(return_type)) << '\n';
 }
 
 static void statement(tree node) {
-    std::cout << "statement " << get_tree_code_name(TREE_CODE(node)) << '\n';
     traverse_tree(DECL_EXPR_DECL(node));
 }
 
 static void expression(tree node) {
     switch (TREE_CODE(node)) {
     case EXPR_STMT:
-        std::cout << "accessing node in expression statement\n";
+        print("accessing node in expression statement");
         traverse_tree(TREE_OPERAND(node, 0));
         break;
     case CLEANUP_POINT_EXPR:
-        std::cout << "accessing node in clean up point\n";
+        print("accessing node in clean up point");
         traverse_tree(TREE_OPERAND(node, 0));
         break;
     case INIT_EXPR: {
@@ -159,62 +179,50 @@ static void expression(tree node) {
         tree rhs = TREE_OPERAND(node, 1);
 
         std::cout << "intializing variable lhs = " << get_tree_code_name(TREE_CODE(lhs))
-                  << ", rhs = " << get_tree_code_name(TREE_CODE(rhs)) << '\n';
+                  << ", rhs = " << get_tree_code_name(TREE_CODE(rhs));
 
         traverse_tree(lhs);
         traverse_tree(rhs);
     } break;
     case MODIFY_EXPR:
-        std::cout << "MODIFY_EXPR\n";
+        print("MODIFY_EXPR");
         traverse_tree(TREE_OPERAND(node, 0));
         traverse_tree(TREE_OPERAND(node, 1));
         break;
     case BIND_EXPR:
-        std::cout << "BIND_EXPR_VARS\n";
+        print("BIND_EXPR_VARS");
         traverse_tree(BIND_EXPR_VARS(node));
-        std::cout << "BIND_EXPR_BODY\n";
+        print("BIND_EXPR_BODY");
         traverse_tree(BIND_EXPR_BODY(node));
         break;
     case CALL_EXPR:
         print_call_expression(node);
         break;
+    case PLUS_EXPR:
+        print_type(TREE_TYPE(node));
+        break;
     default:
-        std::cout << "Unhandled expression: '" << get_tree_code_name(TREE_CODE(node)) << "'\n";
+        print("Unhandled expression: '" << get_tree_code_name(TREE_CODE(node)));
         break;
     }
-}
-
-static void print_name_with_scope(tree node) {
-    std::string str;
-
-    while (node && DECL_NAME(node) && TREE_CODE(node) != TRANSLATION_UNIT_DECL) {
-        str = "::" + std::string(IDENTIFIER_POINTER(DECL_NAME(node))) + str;
-        node = DECL_CONTEXT(node);
-    }
-    std::cout << str;
 }
 
 static void declaration(tree node) {
     tree del_type;
     switch (TREE_CODE(node)) {
     case FUNCTION_DECL:
-        std::cout << "traversing through function tree\n";
         traverse_tree(DECL_SAVED_TREE(node));
         break;
     case VAR_DECL:
-        print_name_with_scope(node);
-        print_type(TREE_TYPE(node));
+        print(IDENTIFIER_POINTER(DECL_NAME(node)));
         if (DECL_INITIAL(node)) {
             traverse_tree(DECL_INITIAL(node));
         }
-        std::cout << '\n';
         break;
     case RESULT_DECL:
-        std::cout << "RESULT_DECL";
-        print_type(TREE_TYPE(node));
         break;
     default:
-        std::cout << "Unhandled declaration: '" << get_tree_code_name(TREE_CODE(node)) << "'\n";
+        print("Unhandled declaration: '" << get_tree_code_name(TREE_CODE(node)));
         break;
     }
 }
@@ -222,7 +230,7 @@ static void declaration(tree node) {
 static void exceptional(tree node) {
     switch (TREE_CODE(node)) {
     case STATEMENT_LIST:
-        std::cout << "iterating over statement list\n";
+        print("iterating over statement list");
         for (tree_stmt_iterator tsi = tsi_start(node); !tsi_end_p(tsi); tsi_next(&tsi)) {
             traverse_tree(tsi_stmt(tsi));
         }
@@ -235,12 +243,12 @@ static void exceptional(tree node) {
 static void unary(tree node) {
     switch (TREE_CODE(node)) {
     case CONVERT_EXPR:
-        std::cout << "-- accessing tree in convert expression\n";
+        print("-- accessing tree in convert expression");
         traverse_tree(TREE_OPERAND(node, 0));
         break;
     default:
         print_type(TREE_TYPE(node));
-        std::cout << "Unhandled unary: '" << get_tree_code_name(TREE_CODE(node)) << "'\n";
+        print("Unhandled unary: '" << get_tree_code_name(TREE_CODE(node)));
         break;
     }
 }
@@ -248,18 +256,23 @@ static void unary(tree node) {
 static void constant(tree node) {
     switch (TREE_CODE(node)) {
     case VOID_CST:
-        std::cout << "-- void constant, we're done now\n";
+        print("-- void constant, we're done now");
         break;
     case INTEGER_CST:
-        std::cout << "-- integer constant: " << TREE_INT_CST_LOW(node) << '\n';
+        print("-- integer constant: " << TREE_INT_CST_LOW(node));
+        break;
+    case REAL_CST:
+        TREE_REAL_CST(node);
         break;
     default:
-        std::cout << "Unhandled declaration: '" << get_tree_code_name(TREE_CODE(node)) << "'\n";
+        print("Unhandled declaration: '" << get_tree_code_name(TREE_CODE(node)));
         break;
     }
 }
 
 static void traverse_tree(tree node) {
+    FUNCSTART
+    print(TREE_CODE_CLASS_STRING(TREE_CODE_CLASS(TREE_CODE(node))));
     switch (TREE_CODE_CLASS(TREE_CODE(node))) {
     case tcc_exceptional:
         exceptional(node);
@@ -278,6 +291,7 @@ static void traverse_tree(tree node) {
         unary(node);
         break;
     case tcc_binary:
+        expression(node);
         break;
     case tcc_statement:
         statement(node);
@@ -289,16 +303,15 @@ static void traverse_tree(tree node) {
         expression(node);
         break;
     default:
-        std::cout << "Unhandled tree code class" << TREE_CODE_CLASS(TREE_CODE(node)) << ") '"
-                  << get_tree_code_name(TREE_CODE(node)) << "'\n";
+        print("Unhandled tree code class:" << TREE_CODE_CLASS(TREE_CODE(node))
+                                           << " type:" << get_tree_code_name(TREE_CODE(node)));
         break;
     }
+    FUNCEND
 }
 
 static void pre_genericize_callback(void *gcc_data, void *user_data) {
     tree node = (tree)gcc_data;
-    std::cout << "pre genericize callback: current node = '" << get_tree_code_name(TREE_CODE(node))
-              << "'\n";
     traverse_tree(node);
 }
 
