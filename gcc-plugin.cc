@@ -144,6 +144,7 @@ static void print_function_arguments(tree type) {
 }
 
 static void print_call_expression(tree node) {
+    FUNCSTART
     tree call_expr_fn = CALL_EXPR_FN(node);
     tree func_decl = TREE_OPERAND(call_expr_fn, 0);
     char func[] = "funcdddd";
@@ -154,17 +155,22 @@ static void print_call_expression(tree node) {
     const std::size_t argc = call_expr_nargs(node);
     for (int i = 0; i < call_expr_nargs(node); ++i) {
         print("arg" << i);
+        print_type(TREE_TYPE(CALL_EXPR_ARG(node, i)));
         traverse_tree(CALL_EXPR_ARG(node, i));
     }
 
     tree return_type = TREE_TYPE(TREE_TYPE(func_decl));
+    FUNCEND
 }
 
 static void statement(tree node) {
+    FUNCSTART
     traverse_tree(DECL_EXPR_DECL(node));
+    FUNCEND
 }
 
 static void expression(tree node) {
+    FUNCSTART
     switch (TREE_CODE(node)) {
     case EXPR_STMT:
         print("accessing node in expression statement");
@@ -205,9 +211,11 @@ static void expression(tree node) {
         print("Unhandled expression: '" << get_tree_code_name(TREE_CODE(node)));
         break;
     }
+    FUNCEND
 }
 
 static void declaration(tree node) {
+    FUNCSTART
     tree del_type;
     switch (TREE_CODE(node)) {
     case FUNCTION_DECL:
@@ -225,9 +233,11 @@ static void declaration(tree node) {
         print("Unhandled declaration: '" << get_tree_code_name(TREE_CODE(node)));
         break;
     }
+    FUNCEND
 }
 
 static void exceptional(tree node) {
+    FUNCSTART
     switch (TREE_CODE(node)) {
     case STATEMENT_LIST:
         print("iterating over statement list");
@@ -238,6 +248,7 @@ static void exceptional(tree node) {
     default:
         break;
     }
+    FUNCEND
 }
 
 static void unary(tree node) {
@@ -272,7 +283,7 @@ static void constant(tree node) {
 
 static void traverse_tree(tree node) {
     FUNCSTART
-    print(TREE_CODE_CLASS_STRING(TREE_CODE_CLASS(TREE_CODE(node))));
+    print("class " << TREE_CODE_CLASS_STRING(TREE_CODE_CLASS(TREE_CODE(node))));
     switch (TREE_CODE_CLASS(TREE_CODE(node))) {
     case tcc_exceptional:
         exceptional(node);
