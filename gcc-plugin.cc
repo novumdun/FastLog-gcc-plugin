@@ -282,6 +282,9 @@ static void constant(tree node) {
 }
 
 static void traverse_tree(tree node) {
+    if (NULL == node) {
+        return;
+    }
     FUNCSTART
     print("class " << TREE_CODE_CLASS_STRING(TREE_CODE_CLASS(TREE_CODE(node))));
     switch (TREE_CODE_CLASS(TREE_CODE(node))) {
