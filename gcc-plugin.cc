@@ -330,9 +330,9 @@ void put_str(char *buf, int *pos, const char *str) {
 }
 
 void make_macro(const char *func, int argc, int *argts) {
-    char buf[4096];
+    char buf[8192];
     int pos = 0;
-    char str[512];
+    char str[1024];
 
     sprintf(str, "#define %s(", func);
     put_str(buf, &pos, str);
@@ -343,10 +343,10 @@ void make_macro(const char *func, int argc, int *argts) {
     }
     buf[pos - 1] = ')';
 
-    sprintf(str, " { struct autogen_%s_stru{ ", func);
+    sprintf(str, " extern unsigned short %s_log_idx; { struct autogen_%s_stru{ ", func, func);
     put_str(buf, &pos, str);
 
-    for (int i = 0; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         sprintf(str, "%s member%d; ", type_to_str(argts[i]), i);
         put_str(buf, &pos, str);
     }
@@ -354,7 +354,7 @@ void make_macro(const char *func, int argc, int *argts) {
     sprintf(str, "} __attribute__((__packed__)) autogen_%s = {", func);
     put_str(buf, &pos, str);
 
-    for (int i = 0; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         sprintf(str, ".member%d = (arg%d), ", i, i);
         put_str(buf, &pos, str);
     }
@@ -363,12 +363,14 @@ void make_macro(const char *func, int argc, int *argts) {
     sprintf(str,
             " struct autogen_%s_log_stru { "
             "unsigned short len; "
-            "unsigned short module_cnt; "
+            "unsigned short idx; "
             "struct autogen_%s_stru stru; "
             "} __attribute__((__packed__)) autogen_%s_log = "
             "{.len = sizeof(struct autogen_%s_log_stru), "
-            ".module_cnt=FASTLOG_FILE_ADDR+__COUNTER__, };}\n\n",
-            func, func, func, func);
+            ".idx=%s_log_idx, };"
+            "autogen_%s_log.idx += FASTLOG_MODULE_BASE_IDX_GET;"
+            "}\n\n",
+            func, func, func, func, func, func);
 
     put_str(buf, &pos, str);
 

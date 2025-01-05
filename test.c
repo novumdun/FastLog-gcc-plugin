@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "Fastlog.h"
+#include "fastlog_test.h"
 #if COMPILE_PASS != COMPILE_PASS_GEN_MACRO
 #include "test.macro.h"
 #endif
