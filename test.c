@@ -1,16 +1,25 @@
 #include <stdio.h>
+#include "Fastlog.h"
+#if COMPILE_PASS != COMPILE_PASS_GEN_MACRO
+#include "test.macro.h"
+#endif
 
+char *mmmm(void) {
+    fastlog("%d %s", 123, "ssssssssssssss");
+    return "dddddddddddddd";
+}
 
 int main(int argc, char **argv) {
-    float v1 = 1;
-    float v2 = v1;
-    extern int func();
-    int v3 = func();
-    extern int funcdddd(int arg1, ...);
-    int v4 = funcdddd(99, 100 + 1234);
-    int v6 = funcdddd(99, v4 + 1234);
-    int v7 = funcdddd(99, v4 + 1234 + v1);
-    float v5 = 1;
-    funcdddd(99, 100 + 1234);
+
+    char *p = mmmm();
+    fastlog("%d %s", 100, p);
+
+    char list[10];
+    memcpy(list, "dddd", 1);
+    fastlog("%d %s", 33, list);
+
+
+    fastlog("%d %d", 99, 100 + 1234);
+    fastlog("%d %s", 100, "ssssssssssssss");
     return 0;
 }
