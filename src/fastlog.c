@@ -9,7 +9,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 
-#include "Fastlog.h"
+#include "fastlog.h"
 
 static atomic_int fastlog_cnt = 0;
 int fastlog_fd = -1;

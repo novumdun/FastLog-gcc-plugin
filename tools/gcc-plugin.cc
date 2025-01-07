@@ -625,19 +625,18 @@ static void traverse_tree(tree node) {
 }
 
 static void pre_genericize_callback(void *gcc_data, void *user_data) {
-    tree node = (tree)gcc_data;
-    traverse_tree(node);
-}
-
-int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version) {
-
-    int fd = open("/home/dengbo/workspace/cabin/FastLog-gcc-plugin/test.macro.h",
+    int fd = open("/home/dengbo/workspace/cabin/FastLog-gcc-plugin/fastlog_out/inc/test.macro.h",
                   O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     macro_fd = fd;
 
+    tree node = (tree)gcc_data;
+    traverse_tree(node);
+}
+
+int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version) {
     register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE, pre_genericize_callback, NULL);
     return 0;
 }

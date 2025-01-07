@@ -12,6 +12,12 @@
 
 #define COMPILE_PASS_GEN_MACRO 0
 
+#define FASTLOG_MODULE_BASE(name) MACRO_CAT(FASTLOG_MODULE_BASE_IDX_, name)
+#define FASTLOG_MODULE_DECLEARE(name) int FASTLOG_MODULE_BASE(name) = -1
+#define FASTLOG_MODULE_INIT(name) MACRO_CAT(FASTLOG_MODULE_BASE_IDX_init_, name)
+#define FASTLOG_MODULE_BASE_GET(name) MACRO_CAT(FASTLOG_MODULE_BASE_IDX_get_, name)
+#define FASTLOG_MODULE_SIZE(name) MACRO_CAT(FASTLOG_MODULE_SIZE_, name)
+
 #if COMPILE_PASS == COMPILE_PASS_GEN_MACRO
 #define fastlog(fmt, ...)                                                                          \
     {                                                                                              \
@@ -24,12 +30,6 @@ extern int fastlog_fd;
 extern int fastlog_open(char *str);
 extern int fastlog_get_mode_base(int mode_size);
 extern int fastlog_write(int fd, char *buff, int len);
-
-#define FASTLOG_MODULE_BASE(name) MACRO_CAT(FASTLOG_MODULE_BASE_IDX_, name)
-#define FASTLOG_MODULE_DECLEARE(name) int FASTLOG_MODULE_BASE(name) = -1
-#define FASTLOG_MODULE_INIT(name) MACRO_CAT(FASTLOG_MODULE_BASE_IDX_init_, name)
-#define FASTLOG_MODULE_BASE_GET(name) MACRO_CAT(FASTLOG_MODULE_BASE_IDX_get_, name)
-#define FASTLOG_MODULE_SIZE(name) MACRO_CAT(FASTLOG_MODULE_SIZE_, name)
 
 #define fastlog(fmt, ...)                                                                          \
     { MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(fmt, __VA_ARGS__); }
