@@ -1,7 +1,7 @@
 #ifndef __FASTLOG_CONFIG__
 #define __FASTLOG_CONFIG__
 
-#include "Fastlog.h"
+#include "fastlog.h"
 
 #define FASTLOG_MODULE_BASE_IDX FASTLOG_MODULE_BASE_GET(test)()
 
