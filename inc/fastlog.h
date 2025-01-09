@@ -25,6 +25,12 @@
         MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(fmt, __VA_ARGS__);                   \
     }
 
+static void fastlog_tmp_func(void) {
+    char file_path[] = __FILE_PATH__;
+    char proj_path[] = __PROJ_PATH__;
+    return;
+}
+
 #else
 extern int fastlog_fd;
 extern int fastlog_open(char *str);

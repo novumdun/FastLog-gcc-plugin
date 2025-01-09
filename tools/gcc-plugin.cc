@@ -137,7 +137,7 @@ static void print_floating_point(tree floating_point) {
 static void print_function_arguments(tree type);
 static void print_type(tree type) {
     FUNCSTART
-    print("type: " << get_tree_code_name(TREE_CODE(type)));
+    print(__func__ << " type " << get_tree_code_name(TREE_CODE(type)));
     print_qualifiers(type);
 
     switch (TREE_CODE(type)) {
@@ -412,6 +412,7 @@ static void statement(tree node) {
 #if 0
 static void expression(tree node) {
     FUNCSTART
+    print(__func__ << " type " << get_tree_code_name(TREE_CODE(node)));
     print("code " << get_tree_code_name(TREE_CODE(node)));
     switch (TREE_CODE(node)) {
     case EXPR_STMT:
@@ -513,9 +514,11 @@ static void expression(tree node) {
 
 static void declaration(tree node) {
     FUNCSTART
+    print(__func__ << " type " << get_tree_code_name(TREE_CODE(node)));
     tree del_type;
     switch (TREE_CODE(node)) {
     case FUNCTION_DECL:
+        // print(IDENTIFIER_POINTER(DECL_NAME(node)));
         traverse_tree(DECL_SAVED_TREE(node));
         break;
     case VAR_DECL:
@@ -535,6 +538,7 @@ static void declaration(tree node) {
 
 static void exceptional(tree node) {
     FUNCSTART
+    print(__func__ << " type " << get_tree_code_name(TREE_CODE(node)));
     switch (TREE_CODE(node)) {
     case STATEMENT_LIST:
         print("iterating over statement list");
@@ -549,6 +553,8 @@ static void exceptional(tree node) {
 }
 
 static void unary(tree node) {
+    FUNCSTART
+    print(__func__ << " type " << get_tree_code_name(TREE_CODE(node)));
     switch (TREE_CODE(node)) {
     case CONVERT_EXPR:
         print("-- accessing tree in convert expression");
@@ -562,9 +568,12 @@ static void unary(tree node) {
         print("Unhandled unary: '" << get_tree_code_name(TREE_CODE(node)));
         break;
     }
+    FUNCEND
 }
 
 static void constant(tree node) {
+    FUNCSTART
+    print(__func__ << " type " << get_tree_code_name(TREE_CODE(node)));
     switch (TREE_CODE(node)) {
     case VOID_CST:
         print("-- void constant, we're done now");
@@ -575,17 +584,24 @@ static void constant(tree node) {
     case REAL_CST:
         TREE_REAL_CST(node);
         break;
+    case STRING_CST:
+        print(TREE_STRING_POINTER(node));
+        break;
     default:
         print("Unhandled declaration: '" << get_tree_code_name(TREE_CODE(node)));
         break;
     }
+    FUNCEND
 }
 
 static void traverse_tree(tree node) {
+    FUNCSTART
     if (NULL == node) {
+        print("null node ");
+        FUNCEND
         return;
     }
-    FUNCSTART
+
     print("class " << TREE_CODE_CLASS_STRING(TREE_CODE_CLASS(TREE_CODE(node))));
     switch (TREE_CODE_CLASS(TREE_CODE(node))) {
     case tcc_exceptional:
