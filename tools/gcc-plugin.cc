@@ -405,6 +405,7 @@ static void get_call_expression(tree node) {
 
 static void statement(tree node) {
     FUNCSTART
+    print(__func__ << " type " << get_tree_code_name(TREE_CODE(node)));
     traverse_tree(DECL_EXPR_DECL(node));
     FUNCEND
 }
@@ -464,7 +465,7 @@ static void expression(tree node) {
 #else
 static void expression(tree node) {
     FUNCSTART
-    print("code " << get_tree_code_name(TREE_CODE(node)));
+    print(__func__ << " type " << get_tree_code_name(TREE_CODE(node)));
     switch (TREE_CODE(node)) {
     case EXPR_STMT:
         print("accessing node in expression statement");
@@ -515,10 +516,32 @@ static void expression(tree node) {
 static void declaration(tree node) {
     FUNCSTART
     print(__func__ << " type " << get_tree_code_name(TREE_CODE(node)));
-    tree del_type;
     switch (TREE_CODE(node)) {
     case FUNCTION_DECL:
         // print(IDENTIFIER_POINTER(DECL_NAME(node)));
+        if (!strcmp("fastlog_tmp_func", IDENTIFIER_POINTER(DECL_NAME(node)))) {
+            tree bind_expr = DECL_SAVED_TREE(node);
+            tree bind_expr_body = BIND_EXPR_BODY(bind_expr);
+            tree statement_list = bind_expr_body;
+            const char *file_path;
+            const char *proj_path;
+
+            for (tree_stmt_iterator tsi = tsi_start(statement_list); !tsi_end_p(tsi);
+                 tsi_next(&tsi)) {
+                tree _statement = tsi_stmt(tsi);
+                tree _var_decl = DECL_EXPR_DECL(_statement);
+                if (_var_decl && DECL_INITIAL(_var_decl)) {
+                    const char *_var_name = IDENTIFIER_POINTER(DECL_NAME(_var_decl));
+                    tree _string_cst = DECL_INITIAL(_var_decl);
+                    if (!strcmp("file_path", _var_name)) {
+                        file_path = TREE_STRING_POINTER(_string_cst);
+                    } else if (!strcmp("proj_path", _var_name)) {
+                        proj_path = TREE_STRING_POINTER(_string_cst);
+                    }
+                }
+            }
+            break;
+        }
         traverse_tree(DECL_SAVED_TREE(node));
         break;
     case VAR_DECL:
