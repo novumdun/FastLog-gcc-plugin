@@ -1,5 +1,8 @@
 #include <iostream>
 #include <string.h>
+#include <sys/queue.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "gcc-plugin.h"
 #include "tree.h"
@@ -13,6 +16,8 @@
 #include "tree-iterator.h"
 
 int cnt = 0;
+const char *file_path;
+const char *proj_path;
 int macro_fd = -1;
 
 #define TYPE_SET_UNSIGNED(type) (type | (0x1 << 2))
@@ -66,6 +71,16 @@ char *(type_str[]) = {
     [type_pointer] = "void *",
     [type_pointer_char] = "char *",
 };
+
+typedef struct macro_rec {
+    LIST_ENTRY(macro_rec) list;
+    const char *macro_name;
+    char argc;
+    char argts[16];
+} macro_rec_t;
+
+LIST_HEAD(listhead, macro_rec);
+struct listhead macro_rec_head;
 
 char *type_to_str(int type) {
     return type_str[type];
@@ -329,7 +344,7 @@ void put_str(char *buf, int *pos, const char *str) {
     return;
 }
 
-void make_macro(const char *func, int argc, int *argts) {
+void make_macro(const char *func, int argc, char *argts) {
     char buf[8192];
     int pos = 0;
     char str[1024];
@@ -385,18 +400,26 @@ static void get_call_expression(tree node) {
     tree func_decl = TREE_OPERAND(call_expr_fn, 0);
     char func[] = "FASTLOG_MACRO_";
 
-    int argts[16];
-    if (!memcmp(IDENTIFIER_POINTER(DECL_NAME(func_decl)), func, strlen(func))) {
+    const char *func_name = IDENTIFIER_POINTER(DECL_NAME(func_decl));
+
+    if (!memcmp(func_name, func, strlen(func))) {
         print(IDENTIFIER_POINTER(DECL_NAME(func_decl)));
 
+        struct macro_rec *ptr = new (struct macro_rec);
+        LIST_INSERT_HEAD(&macro_rec_head, ptr, list);
+
+        ptr->macro_name = func_name;
         const std::size_t argc = call_expr_nargs(node);
+        ptr->argc = argc;
+        char argts[16];
         for (int i = 0; i < call_expr_nargs(node); ++i) {
             print("arg" << i);
             int type = get_type(TREE_TYPE(CALL_EXPR_ARG(node, i)));
             argts[i] = type;
+            ptr->argts[i] = type;
             traverse_tree(CALL_EXPR_ARG(node, i));
         }
-        make_macro(IDENTIFIER_POINTER(DECL_NAME(func_decl)), argc, argts);
+        // make_macro(IDENTIFIER_POINTER(DECL_NAME(func_decl)), argc, argts);
     }
 
     tree return_type = TREE_TYPE(TREE_TYPE(func_decl));
@@ -523,8 +546,6 @@ static void declaration(tree node) {
             tree bind_expr = DECL_SAVED_TREE(node);
             tree bind_expr_body = BIND_EXPR_BODY(bind_expr);
             tree statement_list = bind_expr_body;
-            const char *file_path;
-            const char *proj_path;
 
             for (tree_stmt_iterator tsi = tsi_start(statement_list); !tsi_end_p(tsi);
                  tsi_next(&tsi)) {
@@ -664,18 +685,37 @@ static void traverse_tree(tree node) {
 }
 
 static void pre_genericize_callback(void *gcc_data, void *user_data) {
-    int fd = open("/home/dengbo/workspace/cabin/FastLog-gcc-plugin/fastlog_out/inc/test.macro.h",
-                  O_RDWR | O_CREAT | O_TRUNC, 0666);
+    tree node = (tree)gcc_data;
+    traverse_tree(node);
+}
+
+static void finish_callback(void *gcc_data, void *user_data) {
+    int i;
+    for (i = 0; i < strlen(proj_path); i++) {
+        if (proj_path[i] != file_path[i]) {
+            break;
+        }
+    }
+
+    char macro_fd_path[1024];
+    snprintf(macro_fd_path, sizeof(macro_fd_path), "%s/fastlog_out/inc/%s", proj_path,
+             &file_path[i]);
+
+    int fd = open(macro_fd_path, O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     macro_fd = fd;
 
-    tree node = (tree)gcc_data;
-    traverse_tree(node);
+    struct macro_rec *np;
+    LIST_FOREACH(np, &macro_rec_head, list) {
+        make_macro(np->macro_name, np->argc, np->argts);
+    }
 }
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version) {
+    LIST_INIT(&macro_rec_head);
     register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE, pre_genericize_callback, NULL);
+    register_callback(plugin_info->base_name, PLUGIN_FINISH, finish_callback, NULL);
     return 0;
 }
