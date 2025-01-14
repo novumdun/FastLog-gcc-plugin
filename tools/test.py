@@ -55,7 +55,7 @@ cmd = 'gcc -c -g ' + srcPath + ' ' + includes + \
 shell_cmd(cmd)
 
 srcPath = os.path.join(projPath, 'proj/log_inc.c')
-cmd = 'gcc -E -c -g ' + srcPath
+cmd = 'gcc -c -g ' + srcPath
 shell_cmd(cmd)
 
 cmd = 'gcc ' + ' -o Test ' + ' test.o fastlog_test.o fastlog.o log_inc.o'
