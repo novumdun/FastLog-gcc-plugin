@@ -35,7 +35,7 @@ srcPath = os.path.join(projPath, 'proj/test.c')
 cmd = f'{fileIdProcPath} {os.path.normpath(srcPath)}'
 fileId = shell_cmd(cmd)
 
-includes = f'-I{projPath}/inc -I{projPath}/fastlog_out/inc'
+includes = f'-I{projPath}/inc -I{projPath}/fastlog_out/proj'
 cmd = f'gcc -fplugin={pluginPath} -c {srcPath} {includes} -DCOMPILE_PASS=0 -D__FILE_PATH__=\'"{
     os.path.normpath(srcPath)}"\' -D__PROJ_PATH__=\'"{os.path.normpath(projPath)}"\' -D__FILE_ID__={fileId}'
 shell_cmd(cmd)
@@ -50,10 +50,15 @@ cmd = 'gcc -c -g ' + srcPath + ' ' + includes + \
 shell_cmd(cmd)
 
 srcPath = os.path.join(projPath, 'proj/test.c')
-cmd = 'gcc -c -g ' + srcPath + ' ' + includes + ' -DCOMPILE_PASS=1'
+cmd = 'gcc -c -g ' + srcPath + ' ' + includes + \
+    ' -DCOMPILE_PASS=1 -D__FILE_ID__=' + fileId
 shell_cmd(cmd)
 
-cmd = 'gcc ' + ' -o Test ' + ' test.o fastlog_test.o fastlog.o'
+srcPath = os.path.join(projPath, 'proj/log_inc.c')
+cmd = 'gcc -E -c -g ' + srcPath
+shell_cmd(cmd)
+
+cmd = 'gcc ' + ' -o Test ' + ' test.o fastlog_test.o fastlog.o log_inc.o'
 shell_cmd(cmd)
 
 cmd = './Test'

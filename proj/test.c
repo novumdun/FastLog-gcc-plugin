@@ -2,7 +2,7 @@
 #include "fastlog.h"
 #include "fastlog_test.h"
 #if COMPILE_PASS != COMPILE_PASS_GEN_MACRO
-#include "test.macro.h"
+#include "log_macro.h"
 #endif
 
 char *mmmm(void) {

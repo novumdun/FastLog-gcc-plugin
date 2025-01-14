@@ -19,6 +19,9 @@ int cnt = 0;
 const char *file_path;
 const char *proj_path;
 int macro_fd = -1;
+int idx_fd = -1;
+int inc_fd = -1;
+int macros_fd = -1;
 
 #define TYPE_SET_UNSIGNED(type) (type | (0x1 << 2))
 
@@ -81,6 +84,7 @@ typedef struct macro_rec {
 
 LIST_HEAD(listhead, macro_rec);
 struct listhead macro_rec_head;
+int macro_rec_cnt;
 
 char *type_to_str(int type) {
     return type_str[type];
@@ -383,7 +387,7 @@ void make_macro(const char *func, int argc, char *argts) {
             "} __attribute__((__packed__)) autogen_%s_log = "
             "{.len = sizeof(struct autogen_%s_log_stru), "
             ".idx=%s_log_idx, };"
-            "autogen_%s_log.idx += FASTLOG_MODULE_BASE_IDX_GET;"
+            "autogen_%s_log.idx += FASTLOG_MODULE_BASE_IDX;"
             "}\n\n",
             func, func, func, func, func, func);
 
@@ -392,6 +396,13 @@ void make_macro(const char *func, int argc, char *argts) {
     write(macro_fd, buf, pos);
 
     print(buf);
+}
+
+void make_idx(const char *func) {
+    char str[1024];
+    sprintf(str, "unsigned short %s_log_idx = __COUNTER__;\n", func);
+
+    write(idx_fd, str, strlen(str));
 }
 
 static void get_call_expression(tree node) {
@@ -407,6 +418,7 @@ static void get_call_expression(tree node) {
 
         struct macro_rec *ptr = new (struct macro_rec);
         LIST_INSERT_HEAD(&macro_rec_head, ptr, list);
+        macro_rec_cnt++;
 
         ptr->macro_name = func_name;
         const std::size_t argc = call_expr_nargs(node);
@@ -689,6 +701,24 @@ static void pre_genericize_callback(void *gcc_data, void *user_data) {
     traverse_tree(node);
 }
 
+static void _mkdir(const char *dir) {
+    char tmp[256];
+    char *p = NULL;
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp), "%s", dir);
+    len = strlen(tmp);
+    if (tmp[len - 1] == '/')
+        tmp[len - 1] = 0;
+    for (p = tmp + 1; *p; p++)
+        if (*p == '/') {
+            *p = 0;
+            mkdir(tmp, S_IRWXU);
+            *p = '/';
+        }
+    mkdir(tmp, S_IRWXU);
+}
+
 static void finish_callback(void *gcc_data, void *user_data) {
     int i;
     for (i = 0; i < strlen(proj_path); i++) {
@@ -696,20 +726,68 @@ static void finish_callback(void *gcc_data, void *user_data) {
             break;
         }
     }
+    i++;
+
+    int j;
+    for (j = strlen(&file_path[i]); j > 0; j--) {
+        if (file_path[i + j - 1] == '\/') {
+            break;
+        }
+    }
+    j--;
+
+    char rela_path[128];
+    memcpy(rela_path, &file_path[i], j);
+    rela_path[j] = '\0';
+
+    char out_fd_dir[1024];
+    snprintf(out_fd_dir, sizeof(out_fd_dir), "%s/fastlog_out/%s", proj_path, rela_path);
+    printf(out_fd_dir);
+    _mkdir(out_fd_dir);
 
     char macro_fd_path[1024];
-    snprintf(macro_fd_path, sizeof(macro_fd_path), "%s/fastlog_out/inc/%s", proj_path,
+    snprintf(macro_fd_path, sizeof(macro_fd_path), "%s/fastlog_out/%s.macro.h", proj_path,
              &file_path[i]);
-
     int fd = open(macro_fd_path, O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     macro_fd = fd;
 
+    char src_fd_path[1024];
+    snprintf(src_fd_path, sizeof(src_fd_path), "%s/fastlog_out/%s.inc", proj_path, &file_path[i]);
+    // printf(src_fd_path);
+    fd = open(src_fd_path, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    if (0 > fd) {
+        printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
+    }
+    idx_fd = fd;
+
+    char inc_fd_path[1024];
+    snprintf(inc_fd_path, sizeof(inc_fd_path), "%s/%s/log_inc.c", proj_path, rela_path);
+    fd = open(inc_fd_path, O_RDWR | O_CREAT, 0666);
+    if (0 > fd) {
+        printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
+    }
+    inc_fd = fd;
+    char buf[1024];
+    snprintf(buf, sizeof(buf), "#include \"%s\"", src_fd_path);
+    write(inc_fd, buf, strlen(buf));
+
+    char macros_fd_path[1024];
+    snprintf(macros_fd_path, sizeof(macros_fd_path), "%s/%s/log_macro.h", proj_path, rela_path);
+    fd = open(macros_fd_path, O_RDWR | O_CREAT, 0666);
+    if (0 > fd) {
+        printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
+    }
+    macros_fd = fd;
+    snprintf(buf, sizeof(buf), "#include \"%s\"", macro_fd_path);
+    write(macros_fd, buf, strlen(buf));
+
     struct macro_rec *np;
     LIST_FOREACH(np, &macro_rec_head, list) {
         make_macro(np->macro_name, np->argc, np->argts);
+        make_idx(np->macro_name);
     }
 }
 
