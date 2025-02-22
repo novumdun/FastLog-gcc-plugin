@@ -42,20 +42,6 @@ enum {
     type_pointer_char,
 };
 
-// #define type_none 0
-// #define type_char 1
-// #define type_short 2
-// #define type_int 3
-// #define type_long_long 4
-// #define type_unsigned_char TYPE_SET_UNSIGNED(type_char)
-// #define type_unsigned_short TYPE_SET_UNSIGNED(type_short)
-// #define type_unsigned_int TYPE_SET_UNSIGNED(type_int)
-// #define type_unsigned_long_long TYPE_SET_UNSIGNED(type_long_long)
-// #define type_float (type_unsigned_long_long + 1)
-// #define type_double (type_unsigned_long_long + 2)
-// #define type_pointer (type_unsigned_long_long + 3)
-// #define type_pointer_char (type_unsigned_long_long + 4)
-
 char *(type_str[]) = {
     [type_none] = "none",
     [type_char] = "char",
@@ -73,18 +59,10 @@ char *(type_str[]) = {
 };
 
 int(type_size[]) = {
-    [type_none] = 0,
-    [type_char] = 1,
-    [type_unsigned_char] = 1,
-    [type_short] = 2,
-    [type_unsigned_short] = 2,
-    [type_int] = 4,
-    [type_unsigned_int] = 4,
-    [type_long_long] = 8,
-    [type_unsigned_long_long] = 8,
-    [type_float] = 4,
-    [type_double] = 8,
-    [type_pointer] = 8,
+    [type_none] = 0,         [type_char] = 1,           [type_unsigned_char] = 1,
+    [type_short] = 2,        [type_unsigned_short] = 2, [type_int] = 4,
+    [type_unsigned_int] = 4, [type_long_long] = 8,      [type_unsigned_long_long] = 8,
+    [type_float] = 4,        [type_double] = 8,         [type_pointer] = 8,
     [type_pointer_char] = 8,
 };
 
@@ -412,7 +390,7 @@ void make_macro(const char *func, int argc, char *argts) {
 
     write(macro_fd, buf, pos);
 
-    print(buf);
+    // print(buf);
 }
 
 void make_idx(struct macro_rec *np) {
@@ -439,9 +417,15 @@ void make_idx(struct macro_rec *np) {
 
 const char *get_call_exp_fmt(tree node) {
     tree nop_expr = node;
-    tree addr_expr = TREE_OPERAND(nop_expr, 0);
-    tree string_cst = TREE_OPERAND(addr_expr, 0);
-    return TREE_STRING_POINTER(string_cst);
+    if (NOP_EXPR == TREE_CODE(nop_expr)) {
+        tree addr_expr = TREE_OPERAND(nop_expr, 0);
+        if (ADDR_EXPR == TREE_CODE(addr_expr)) {
+            tree string_cst = TREE_OPERAND(addr_expr, 0);
+            return TREE_STRING_POINTER(string_cst);
+        }
+    } else if (VAR_DECL == TREE_CODE(nop_expr)) {
+    }
+    return "";
 }
 
 static void get_call_expression(tree node) {
