@@ -22,6 +22,7 @@ int macro_fd = -1;
 int idx_fd = -1;
 int inc_fd = -1;
 int macros_fd = -1;
+int rec_fd = -1;
 
 #define TYPE_SET_UNSIGNED(type) (type | (0x1 << 2))
 
@@ -78,6 +79,7 @@ char *(type_str[]) = {
 typedef struct macro_rec {
     LIST_ENTRY(macro_rec) list;
     const char *macro_name;
+    const char *fmt;
     char argc;
     char argts[16];
 } macro_rec_t;
@@ -251,7 +253,7 @@ static int get_floating_point(tree floating_point) {
 
 static int get_type(tree node) {
     FUNCSTART
-    print(" type: " << get_tree_code_name(TREE_CODE(node)));
+    print("type: " << get_tree_code_name(TREE_CODE(node)));
     // int _const = get_qualifiers(node);
     int type = type_none;
 
@@ -351,7 +353,7 @@ void put_str(char *buf, int *pos, const char *str) {
 void make_macro(const char *func, int argc, char *argts) {
     char buf[8192];
     int pos = 0;
-    char str[1024];
+    char str[2048];
 
     sprintf(str, "#define %s(", func);
     put_str(buf, &pos, str);
@@ -386,10 +388,12 @@ void make_macro(const char *func, int argc, char *argts) {
             "struct autogen_%s_stru stru; "
             "} __attribute__((__packed__)) autogen_%s_log = "
             "{.len = sizeof(struct autogen_%s_log_stru), "
-            ".idx=%s_log_idx, };"
+            ".idx = %s_log_idx,"
+            ".stru = autogen_%s};"
             "autogen_%s_log.idx += FASTLOG_MODULE_BASE_IDX;"
+            "fastlog_write(fastlog_fd, (void *)&autogen_%s_log, sizeof(autogen_%s_log));"
             "}\n\n",
-            func, func, func, func, func, func);
+            func, func, func, func, func, func, func, func, func);
 
     put_str(buf, &pos, str);
 
@@ -405,6 +409,19 @@ void make_idx(const char *func) {
     write(idx_fd, str, strlen(str));
 }
 
+void make_record(struct macro_rec *np) {
+    char buf[2048];
+    snprintf(buf, sizeof(buf), "#include \"%s\"\n", );
+    write(rec_fd, buf, strlen(buf));
+}
+
+const char *get_call_exp_fmt(tree node) {
+    tree nop_expr = node;
+    tree addr_expr = TREE_OPERAND(nop_expr, 0);
+    tree string_cst = TREE_OPERAND(addr_expr, 0);
+    return TREE_STRING_POINTER(string_cst);
+}
+
 static void get_call_expression(tree node) {
     FUNCSTART
     tree call_expr_fn = CALL_EXPR_FN(node);
@@ -414,13 +431,15 @@ static void get_call_expression(tree node) {
     const char *func_name = IDENTIFIER_POINTER(DECL_NAME(func_decl));
 
     if (!memcmp(func_name, func, strlen(func))) {
-        print(IDENTIFIER_POINTER(DECL_NAME(func_decl)));
+        print(func_name);
 
         struct macro_rec *ptr = new (struct macro_rec);
         LIST_INSERT_HEAD(&macro_rec_head, ptr, list);
         macro_rec_cnt++;
 
         ptr->macro_name = func_name;
+        ptr->fmt = get_call_exp_fmt(CALL_EXPR_ARG(node, 0));
+        print(ptr->fmt);
         const std::size_t argc = call_expr_nargs(node);
         ptr->argc = argc;
         char argts[16];
@@ -765,30 +784,41 @@ static void finish_callback(void *gcc_data, void *user_data) {
 
     char inc_fd_path[1024];
     snprintf(inc_fd_path, sizeof(inc_fd_path), "%s/%s/log_inc.c", proj_path, rela_path);
-    fd = open(inc_fd_path, O_RDWR | O_CREAT, 0666);
+    fd = open(inc_fd_path, O_RDWR | O_CREAT | O_APPEND, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     inc_fd = fd;
     char buf[1024];
-    snprintf(buf, sizeof(buf), "#include \"%s\"", src_fd_path);
+    snprintf(buf, sizeof(buf), "#include \"%s\"\n", src_fd_path);
     write(inc_fd, buf, strlen(buf));
 
     char macros_fd_path[1024];
     snprintf(macros_fd_path, sizeof(macros_fd_path), "%s/%s/log_macro.h", proj_path, rela_path);
-    fd = open(macros_fd_path, O_RDWR | O_CREAT, 0666);
+    fd = open(macros_fd_path, O_RDWR | O_CREAT | O_APPEND, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     macros_fd = fd;
-    snprintf(buf, sizeof(buf), "#include \"%s\"", macro_fd_path);
+    snprintf(buf, sizeof(buf), "#include \"%s\"\n", macro_fd_path);
     write(macros_fd, buf, strlen(buf));
+
+    char rec_fd_path[1024];
+    snprintf(rec_fd_path, sizeof(rec_fd_path), "%s/%s/log_rec", proj_path, rela_path);
+    fd = open(rec_fd_path, O_RDWR | O_CREAT | O_APPEND, 0666);
+    if (0 > fd) {
+        printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
+    }
+    rec_fd = fd;
 
     struct macro_rec *np;
     LIST_FOREACH(np, &macro_rec_head, list) {
         make_macro(np->macro_name, np->argc, np->argts);
         make_idx(np->macro_name);
+        make_record(np);
     }
+    snprintf(buf, sizeof(buf), "// FASTLOG_MODULE_SIZE_ %d\n", macro_rec_cnt);
+    write(idx_fd, buf, strlen(buf));
 }
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version) {
