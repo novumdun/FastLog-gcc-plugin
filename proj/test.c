@@ -11,7 +11,7 @@ char *mmmm(void) {
 }
 
 int main(int argc, char **argv) {
-    fastlog_open("/home/dengbo/workspace/cabin/FastLog-gcc-plugin/Test.log");
+    fastlog_open("/home/dengbo/workspace/cabin/FastLog-gcc-plugin/fastlog_out/flog");
 
     FASTLOG_MODULE_INIT(test)();
 

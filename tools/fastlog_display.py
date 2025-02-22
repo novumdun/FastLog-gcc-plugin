@@ -12,11 +12,11 @@ import struct
 def frame_deal(recordItems, datas):
     global cmd_strs, cmd_strs_w, sem
 
-    addr = str(int(datas[1]) + (int(datas[2]) << 8))
+    addr = str(int(datas[2]) + (int(datas[3]) << 8))
     if addr in recordItems:
         item = recordItems[addr]
 
-        args_p = 3
+        args_p = 4
         args_c = 0
         args_array = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         for idx, arg_len in enumerate(item['args']):
@@ -81,7 +81,7 @@ def display_flog():
         dir, '../fastlog_out/flog'), mode='rb')
     context = fp.read()
     while (context):
-        size = int(context[0])
+        size = int(context[0]) + (int(context[1]) << 8)
         if size > len(context):
             print('Err size')
             break

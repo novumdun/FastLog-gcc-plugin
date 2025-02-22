@@ -32,13 +32,20 @@ static void fastlog_tmp_func(void) {
 }
 
 #else
+struct autogen_log_stru {
+    unsigned short len;
+    unsigned short idx;
+} __attribute__((__packed__));
+
 extern int fastlog_fd;
 extern int fastlog_open(char *str);
 extern int fastlog_get_mode_base(int mode_size);
-extern int fastlog_write(int fd, char *buff, int len);
+extern int fastlog_write(int fd, struct autogen_log_stru *buff, int len);
 
 #define fastlog(fmt, ...)                                                                          \
-    { MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(fmt, __VA_ARGS__); }
+    {                                                                                              \
+        MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(fmt, __VA_ARGS__);                   \
+    }
 #endif
 
 #endif

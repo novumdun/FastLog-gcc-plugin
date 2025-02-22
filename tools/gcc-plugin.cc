@@ -24,21 +24,17 @@ int inc_fd = -1;
 int macros_fd = -1;
 int rec_fd = -1;
 
-#define TYPE_SET_UNSIGNED(type) (type | (0x1 << 2))
+#define TYPE_SET_UNSIGNED(type) (type + 1)
 
 enum {
     type_none = 0,
     type_char,
+    type_unsigned_char,
     type_short,
-    type_int,
-    type_long_long,
-    // type_unsigned_char = TYPE_SET_UNSIGNED(type_char),
-    // type_unsigned_short = TYPE_SET_UNSIGNED(type_short),
-    // type_unsigned_int = TYPE_SET_UNSIGNED(type_int),
-    // type_unsigned_long_long = TYPE_SET_UNSIGNED(type_long_long),
-    type_unsigned_char = 5,
     type_unsigned_short,
+    type_int,
     type_unsigned_int,
+    type_long_long,
     type_unsigned_long_long,
     type_float,
     type_double,
@@ -63,17 +59,33 @@ enum {
 char *(type_str[]) = {
     [type_none] = "none",
     [type_char] = "char",
-    [type_short] = "short",
-    [type_int] = "int",
-    [type_long_long] = "long long",
     [type_unsigned_char] = "unsigned char",
+    [type_short] = "short",
     [type_unsigned_short] = "unsigned short",
+    [type_int] = "int",
     [type_unsigned_int] = "unsigned int",
+    [type_long_long] = "long long",
     [type_unsigned_long_long] = "unsigned long long",
     [type_float] = "float",
     [type_double] = "double",
     [type_pointer] = "void *",
     [type_pointer_char] = "char *",
+};
+
+int(type_size[]) = {
+    [type_none] = 0,
+    [type_char] = 1,
+    [type_unsigned_char] = 1,
+    [type_short] = 2,
+    [type_unsigned_short] = 2,
+    [type_int] = 4,
+    [type_unsigned_int] = 4,
+    [type_long_long] = 8,
+    [type_unsigned_long_long] = 8,
+    [type_float] = 4,
+    [type_double] = 8,
+    [type_pointer] = 8,
+    [type_pointer_char] = 8,
 };
 
 typedef struct macro_rec {
@@ -82,6 +94,7 @@ typedef struct macro_rec {
     const char *fmt;
     char argc;
     char argts[16];
+    char argss[16];
 } macro_rec_t;
 
 LIST_HEAD(listhead, macro_rec);
@@ -402,17 +415,26 @@ void make_macro(const char *func, int argc, char *argts) {
     print(buf);
 }
 
-void make_idx(const char *func) {
-    char str[1024];
-    sprintf(str, "unsigned short %s_log_idx = __COUNTER__;\n", func);
+void make_idx(struct macro_rec *np) {
+    char str[2048];
+    sprintf(str,
+            "unsigned short %s_log_idx = __COUNTER__; "
+            "LOG_IDX_FAKE(\"%s\",\"%s\",%d"
+            ",%d,%d,%d,%d"
+            ",%d,%d,%d,%d"
+            ",%d,%d,%d,%d"
+            ",%d,%d,%d,%d"
+            ",%d,%d,%d,%d"
+            ",%d,%d,%d,%d);\n",
+            np->macro_name, file_path, np->fmt, np->argc,
+
+            np->argts[0], np->argts[1], np->argts[2], np->argts[3], np->argts[4], np->argts[5],
+            np->argts[6], np->argts[7], np->argts[8], np->argts[9], np->argts[10], np->argts[11],
+
+            np->argss[0], np->argss[1], np->argss[2], np->argss[3], np->argss[4], np->argss[5],
+            np->argss[6], np->argss[7], np->argss[8], np->argss[9], np->argss[10], np->argss[11]);
 
     write(idx_fd, str, strlen(str));
-}
-
-void make_record(struct macro_rec *np) {
-    char buf[2048];
-    snprintf(buf, sizeof(buf), "#include \"%s\"\n", );
-    write(rec_fd, buf, strlen(buf));
 }
 
 const char *get_call_exp_fmt(tree node) {
@@ -434,6 +456,7 @@ static void get_call_expression(tree node) {
         print(func_name);
 
         struct macro_rec *ptr = new (struct macro_rec);
+        memset(ptr, 0, sizeof(struct macro_rec));
         LIST_INSERT_HEAD(&macro_rec_head, ptr, list);
         macro_rec_cnt++;
 
@@ -442,15 +465,13 @@ static void get_call_expression(tree node) {
         print(ptr->fmt);
         const std::size_t argc = call_expr_nargs(node);
         ptr->argc = argc;
-        char argts[16];
         for (int i = 0; i < call_expr_nargs(node); ++i) {
             print("arg" << i);
             int type = get_type(TREE_TYPE(CALL_EXPR_ARG(node, i)));
-            argts[i] = type;
             ptr->argts[i] = type;
+            ptr->argss[i] = type_size[type];
             traverse_tree(CALL_EXPR_ARG(node, i));
         }
-        // make_macro(IDENTIFIER_POINTER(DECL_NAME(func_decl)), argc, argts);
     }
 
     tree return_type = TREE_TYPE(TREE_TYPE(func_decl));
@@ -781,6 +802,8 @@ static void finish_callback(void *gcc_data, void *user_data) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     idx_fd = fd;
+    char *str = "#include \"c.inc.h\"\r\n";
+    write(idx_fd, str, strlen(str) + 1);
 
     char inc_fd_path[1024];
     snprintf(inc_fd_path, sizeof(inc_fd_path), "%s/%s/log_inc.c", proj_path, rela_path);
@@ -814,8 +837,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
     struct macro_rec *np;
     LIST_FOREACH(np, &macro_rec_head, list) {
         make_macro(np->macro_name, np->argc, np->argts);
-        make_idx(np->macro_name);
-        make_record(np);
+        make_idx(np);
     }
     snprintf(buf, sizeof(buf), "// FASTLOG_MODULE_SIZE_ %d\n", macro_rec_cnt);
     write(idx_fd, buf, strlen(buf));

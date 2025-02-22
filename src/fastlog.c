@@ -30,7 +30,7 @@ int fastlog_get_mode_base(int mode_size) {
     return base;
 }
 
-int fastlog_write(int fd, char *buff, int len) {
+int fastlog_write(int fd, struct autogen_log_stru *buff, int len) {
     int count = 0;
     int size = len;
 
@@ -39,7 +39,7 @@ int fastlog_write(int fd, char *buff, int len) {
     }
     while (count < size) {
         pthread_mutex_lock(&fd_lock);
-        count = write(fd, buff + count, size - count);
+        count = write(fd, (char *)buff + count, size - count);
         pthread_mutex_unlock(&fd_lock);
         size = size - count;
         if (count < 0) {
