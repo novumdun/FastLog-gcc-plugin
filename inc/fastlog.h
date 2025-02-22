@@ -22,7 +22,7 @@
 #define fastlog(fmt, ...)                                                                          \
     {                                                                                              \
         extern int MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(char *format, ...);       \
-        MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(fmt, __VA_ARGS__);                   \
+        MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(fmt __VA_OPT__(,) __VA_ARGS__);                   \
     }
 
 static void fastlog_tmp_func(void) {
@@ -44,7 +44,7 @@ extern int fastlog_write(int fd, struct autogen_log_stru *buff, int len);
 
 #define fastlog(fmt, ...)                                                                          \
     {                                                                                              \
-        MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(fmt, __VA_ARGS__);                   \
+        MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(fmt __VA_OPT__(,) __VA_ARGS__);                   \
     }
 #endif
 
