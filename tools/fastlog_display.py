@@ -7,6 +7,7 @@ import platform
 from threading import Thread, Semaphore
 from ctypes import *
 import struct
+import re
 
 
 def frame_deal(recordItems, datas):
@@ -16,7 +17,17 @@ def frame_deal(recordItems, datas):
     if addr in recordItems:
         item = recordItems[addr]
 
-        args_p = 4
+        item_str = item['str']
+        pos = 4
+        if (item['str'] == -1):
+            while (int(datas[pos]) != 0):
+                pos += 1
+            item_str = datas[4:pos].decode("utf-8")
+            pos += 1
+
+        item_str = item_str.replace("%s", "%p")
+
+        args_p = pos
         args_c = 0
         args_array = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         for idx, arg_len in enumerate(item['args']):
@@ -44,7 +55,7 @@ def frame_deal(recordItems, datas):
         sys = platform.system()
         if sys == "Windows":
             msvcrt = cdll.msvcrt
-            msvcrt.sprintf(str_array, bytes(item['str'] + '\r\n', encoding="utf-8"), args_array[0],
+            msvcrt.sprintf(str_array, bytes(item_str + '\r\n', encoding="utf-8"), args_array[0],
                            args_array[1],
                            args_array[2],
                            args_array[3],
@@ -57,7 +68,7 @@ def frame_deal(recordItems, datas):
         else:
             cdll.LoadLibrary("libc.so.6")
             libc = CDLL("libc.so.6")
-            libc.sprintf(str_array, bytes(item['str'] + '\r\n', encoding="utf-8"), args_array[0],
+            libc.sprintf(str_array, bytes(item_str + '\r\n', encoding="utf-8"), args_array[0],
                          args_array[1],
                          args_array[2],
                          args_array[3],
@@ -68,6 +79,7 @@ def frame_deal(recordItems, datas):
                          args_array[8],
                          args_array[9])
         print(str_array.value.decode('utf-8'))
+
 
 def display_flog():
     dir = os.path.dirname(__file__)
@@ -82,11 +94,14 @@ def display_flog():
     context = fp.read()
     while (context):
         size = int(context[0]) + (int(context[1]) << 8)
-        if size > len(context):
+        if not size:
+            break
+        elif (size > len(context)):
             print('Err size')
             break
         frame_deal(recordItems, context[0:size])
         context = context[size:]
+
 
 if __name__ == '__main__':
     display_flog()

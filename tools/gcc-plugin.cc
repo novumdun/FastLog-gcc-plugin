@@ -40,6 +40,7 @@ enum {
     type_double,
     type_pointer,
     type_pointer_char,
+    type_string,
 };
 
 char *(type_str[]) = {
@@ -56,6 +57,7 @@ char *(type_str[]) = {
     [type_double] = "double",
     [type_pointer] = "void *",
     [type_pointer_char] = "char *",
+    [type_string] = "string ",
 };
 
 int(type_size[]) = {
@@ -63,7 +65,7 @@ int(type_size[]) = {
     [type_short] = 2,        [type_unsigned_short] = 2, [type_int] = 4,
     [type_unsigned_int] = 4, [type_long_long] = 8,      [type_unsigned_long_long] = 8,
     [type_float] = 4,        [type_double] = 8,         [type_pointer] = 8,
-    [type_pointer_char] = 8,
+    [type_pointer_char] = 8, [type_string] = 0,
 };
 
 typedef struct macro_rec {
@@ -73,6 +75,7 @@ typedef struct macro_rec {
     char argc;
     char argts[16];
     char argss[16];
+    const char *arg_str[16];
 } macro_rec_t;
 
 LIST_HEAD(listhead, macro_rec);
@@ -244,7 +247,7 @@ static int get_floating_point(tree floating_point) {
 
 static int get_type(tree node) {
     FUNCSTART
-    print("type: " << get_tree_code_name(TREE_CODE(node)));
+        print("type: " << get_tree_code_name(TREE_CODE(node)));
     // int _const = get_qualifiers(node);
     int type = type_none;
 
@@ -341,7 +344,10 @@ void put_str(char *buf, int *pos, const char *str) {
     return;
 }
 
-void make_macro(const char *func, int argc, char *argts) {
+void make_macro(struct macro_rec *np) {
+    const char *func = np->macro_name;
+    int argc = np->argc;
+    char *argts = np->argts;
     char buf[8192];
     int pos = 0;
     char str[2048];
@@ -355,36 +361,66 @@ void make_macro(const char *func, int argc, char *argts) {
     }
     buf[pos - 1] = ')';
 
-    sprintf(str, " extern unsigned short %s_log_idx; { struct autogen_%s_stru{ ", func, func);
+    sprintf(str, "extern unsigned short %s_log_idx; {", func);
     put_str(buf, &pos, str);
+
+    if (NULL == np->fmt) {
+        sprintf(str, "int len_arg0= strlen(arg0)+1; ");
+    } else {
+        sprintf(str, "int len_arg0= 0; ");
+    }
+    put_str(buf, &pos, str);
+
+    sprintf(str,
+            "struct autogen_%s_log_stru { "
+            "unsigned short len; "
+            "unsigned short idx; ",
+            func);
+    put_str(buf, &pos, str);
+
+    if (NULL == np->fmt) {
+        sprintf(str, "char member0[len_arg0]; ");
+        put_str(buf, &pos, str);
+    }
 
     for (int i = 1; i < argc; i++) {
         sprintf(str, "%s member%d; ", type_to_str(argts[i]), i);
         put_str(buf, &pos, str);
     }
 
-    sprintf(str, "} __attribute__((__packed__)) autogen_%s = {", func);
+    sprintf(str, " } __attribute__((__packed__)) *stru_p;");
+    put_str(buf, &pos, str);
+
+    sprintf(str, "int buf_size = len_arg0 + 2*sizeof(unsigned short)", func);
+    put_str(buf, &pos, str);
+    for (int i = 1; i < argc; i++) {
+        sprintf(str, "+sizeof(stru_p->member%d) ", i);
+        put_str(buf, &pos, str);
+    }
+    sprintf(str, ";");
+    put_str(buf, &pos, str);
+
+    sprintf(str, "char stru_buf[buf_size]; stru_p = (struct autogen_%s_log_stru *)stru_buf; ",
+            func);
+    put_str(buf, &pos, str);
+
+    sprintf(str,
+            "stru_p->len = buf_size;"
+            "stru_p->idx = %s_log_idx + FASTLOG_MODULE_BASE_IDX;",
+            func);
     put_str(buf, &pos, str);
 
     for (int i = 1; i < argc; i++) {
-        sprintf(str, ".member%d = (arg%d), ", i, i);
+        sprintf(str, "stru_p->member%d = (arg%d); ", i, i);
         put_str(buf, &pos, str);
     }
-    put_str(buf, &pos, " };");
 
-    sprintf(str,
-            " struct autogen_%s_log_stru { "
-            "unsigned short len; "
-            "unsigned short idx; "
-            "struct autogen_%s_stru stru; "
-            "} __attribute__((__packed__)) autogen_%s_log = "
-            "{.len = sizeof(struct autogen_%s_log_stru), "
-            ".idx = %s_log_idx,"
-            ".stru = autogen_%s};"
-            "autogen_%s_log.idx += FASTLOG_MODULE_BASE_IDX;"
-            "fastlog_write(fastlog_fd, (void *)&autogen_%s_log, sizeof(autogen_%s_log));"
-            "}\n\n",
-            func, func, func, func, func, func, func, func, func);
+    if (NULL == np->fmt) {
+        sprintf(str, "memcpy(stru_p->member0, arg0, len_arg0); ");
+        put_str(buf, &pos, str);
+    }
+
+    sprintf(str, "fastlog_write(fastlog_fd, (void *)stru_p, buf_size);};\n\n");
 
     put_str(buf, &pos, str);
 
@@ -395,16 +431,26 @@ void make_macro(const char *func, int argc, char *argts) {
 
 void make_idx(struct macro_rec *np) {
     char str[2048];
-    sprintf(str,
-            "unsigned short %s_log_idx = __COUNTER__; "
-            "LOG_IDX_FAKE(\"%s\",\"%s\",%d"
+
+    if (np->fmt) {
+        sprintf(str,
+                "unsigned short %s_log_idx = __COUNTER__; "
+                "LOG_IDX_FAKE(\"%s\",\"%s\",%d",
+                np->macro_name, file_path, np->fmt, np->argc);
+    } else {
+        sprintf(str,
+                "unsigned short %s_log_idx = __COUNTER__; "
+                "LOG_IDX_FAKE(\"%s\",%s,%d",
+                np->macro_name, file_path, "-1", np->argc);
+    }
+
+    sprintf(str + strlen(str),
             ",%d,%d,%d,%d"
             ",%d,%d,%d,%d"
             ",%d,%d,%d,%d"
             ",%d,%d,%d,%d"
             ",%d,%d,%d,%d"
             ",%d,%d,%d,%d);\n",
-            np->macro_name, file_path, np->fmt, np->argc,
 
             np->argts[0], np->argts[1], np->argts[2], np->argts[3], np->argts[4], np->argts[5],
             np->argts[6], np->argts[7], np->argts[8], np->argts[9], np->argts[10], np->argts[11],
@@ -415,17 +461,22 @@ void make_idx(struct macro_rec *np) {
     write(idx_fd, str, strlen(str));
 }
 
+#define _TO_STRING(x) #x
+#define TO_STRING(x) _TO_STRING(x)
 const char *get_call_exp_fmt(tree node) {
-    tree nop_expr = node;
-    if (NOP_EXPR == TREE_CODE(nop_expr)) {
-        tree addr_expr = TREE_OPERAND(nop_expr, 0);
-        if (ADDR_EXPR == TREE_CODE(addr_expr)) {
-            tree string_cst = TREE_OPERAND(addr_expr, 0);
-            return TREE_STRING_POINTER(string_cst);
+    if (NOP_EXPR == TREE_CODE(node)) {
+        tree nop_expr = node;
+        if (ADDR_EXPR == TREE_CODE(TREE_OPERAND(nop_expr, 0))) {
+            tree addr_expr = TREE_OPERAND(nop_expr, 0);
+            if (STRING_CST == TREE_CODE(TREE_OPERAND(addr_expr, 0))) {
+                tree string_cst = TREE_OPERAND(addr_expr, 0);
+                if (NULL != TREE_STRING_POINTER(string_cst)) {
+                    return TREE_STRING_POINTER(string_cst);
+                }
+            }
         }
-    } else if (VAR_DECL == TREE_CODE(nop_expr)) {
     }
-    return "";
+    return NULL;
 }
 
 static void get_call_expression(tree node) {
@@ -446,12 +497,19 @@ static void get_call_expression(tree node) {
 
         ptr->macro_name = func_name;
         ptr->fmt = get_call_exp_fmt(CALL_EXPR_ARG(node, 0));
-        print(ptr->fmt);
+        // print(ptr->fmt);
         const std::size_t argc = call_expr_nargs(node);
         ptr->argc = argc;
         for (int i = 0; i < call_expr_nargs(node); ++i) {
             print("arg" << i);
             int type = get_type(TREE_TYPE(CALL_EXPR_ARG(node, i)));
+            // if (type_pointer_char == type) {
+            //     const char *str = get_call_exp_fmt(CALL_EXPR_ARG(node, i));
+            //     if (NULL != str) {
+            //         ptr->arg_str[i] = str;
+            //         type = type_string;
+            //     }
+            // }
             ptr->argts[i] = type;
             ptr->argss[i] = type_size[type];
             traverse_tree(CALL_EXPR_ARG(node, i));
@@ -820,7 +878,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
 
     struct macro_rec *np;
     LIST_FOREACH(np, &macro_rec_head, list) {
-        make_macro(np->macro_name, np->argc, np->argts);
+        make_macro(np);
         make_idx(np);
     }
     snprintf(buf, sizeof(buf), "// FASTLOG_MODULE_SIZE_ %d\n", macro_rec_cnt);

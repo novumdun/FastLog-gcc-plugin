@@ -115,8 +115,12 @@ while (1):
         item = line_rec.split(",")
         args = [int(item[i]) for i in range(16, 26)]
         args_t = [int(item[i]) for i in range(4, 14)]
+        if item[1][0] == '"':
+            _str = item[1][1:-1]
+        else:
+            _str = int(item[1])
         print_items[line_rec_idx] = {'line': line_num,
-                                     'str': item[1][1:-1], 'args': args, 'args_t': args_t, 'file': item[0][1:-1]}
+                                     'str': _str, 'args': args, 'args_t': args_t, 'file': item[0][1:-1]}
 
 fastlog_lines_file = os.path.join(
     projPath, 'fastlog_out', "fastlog_lines.json")
