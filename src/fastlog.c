@@ -15,7 +15,7 @@ static atomic_int fastlog_cnt = 0;
 int fastlog_fd = -1;
 static pthread_mutex_t fd_lock = PTHREAD_MUTEX_INITIALIZER;
 
-int fastlog_open(char *str) {
+int fastlog_open(const char *str) {
     int fd = open(str, O_RDWR | O_CREAT, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);

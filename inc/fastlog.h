@@ -19,6 +19,7 @@
 #define FASTLOG_MODULE_SIZE(name) MACRO_CAT(FASTLOG_MODULE_SIZE_, name)
 
 #if COMPILE_PASS == COMPILE_PASS_GEN_MACRO
+extern int fastlog_open(const char *str);
 #define fastlog(fmt, ...)                                                                          \
     {                                                                                              \
         extern int MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(char *format, ...);       \
@@ -38,7 +39,7 @@ struct autogen_log_stru {
 } __attribute__((__packed__));
 
 extern int fastlog_fd;
-extern int fastlog_open(char *str);
+extern int fastlog_open(const char *str);
 extern int fastlog_get_mode_base(int mode_size);
 extern int fastlog_write(int fd, struct autogen_log_stru *buff, int len);
 

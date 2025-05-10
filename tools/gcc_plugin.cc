@@ -43,7 +43,7 @@ enum {
     type_string,
 };
 
-char *(type_str[]) = {
+const char *(type_str[]) = {
     [type_none] = "none",
     [type_char] = "char",
     [type_unsigned_char] = "unsigned char",
@@ -82,7 +82,7 @@ LIST_HEAD(listhead, macro_rec);
 struct listhead macro_rec_head;
 int macro_rec_cnt;
 
-char *type_to_str(int type) {
+const char *type_to_str(int type) {
     return type_str[type];
 }
 
@@ -96,6 +96,7 @@ char *type_to_str(int type) {
         cnt--;                                                                                     \
     } while (0);
 
+#ifdef DEBUG
 #define print(str)                                                                                 \
     do {                                                                                           \
         int ___i = 0;                                                                              \
@@ -104,6 +105,9 @@ char *type_to_str(int type) {
         }                                                                                          \
         std::cout << str << "\n";                                                                  \
     } while (0)
+#else
+#define print(str)
+#endif
 
 // we have to specify plugin_is_GPL_compatible for every plugin
 // if it is not defined a compilation error will follow later.
@@ -812,7 +816,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
 
     int j;
     for (j = strlen(&file_path[i]); j > 0; j--) {
-        if (file_path[i + j - 1] == '\/') {
+        if (file_path[i + j - 1] == '/') {
             break;
         }
     }
@@ -844,8 +848,8 @@ static void finish_callback(void *gcc_data, void *user_data) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     idx_fd = fd;
-    char *str = "#include \"c.inc.h\"\r\n";
-    write(idx_fd, str, strlen(str) + 1);
+    const char *str = "#include \"c.inc.h\"\r\n";
+    write(idx_fd, str, strlen(str));
 
     char inc_fd_path[1024];
     snprintf(inc_fd_path, sizeof(inc_fd_path), "%s/%s/log_inc.c", proj_path, rela_path);

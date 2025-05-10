@@ -7,6 +7,8 @@
 #include "log_macro.h"
 #endif
 
+extern int test(void);
+
 const char *test_func_1(void) {
     return __func__;
 }
