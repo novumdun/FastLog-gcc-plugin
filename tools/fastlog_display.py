@@ -25,7 +25,7 @@ def frame_deal(recordItems, datas):
             item_str = datas[4:pos].decode("utf-8")
             pos += 1
 
-        item_str = item_str.replace("%s", "%p")
+        # item_str = item_str.replace("%s", "%p")
 
         args_p = pos
         args_c = 0
@@ -41,6 +41,8 @@ def frame_deal(recordItems, datas):
                 elif 1 == (arg_t & 0x01):
                     value = int.from_bytes(
                         arg, byteorder='little', signed=True)
+                elif 12 == arg_t:
+                    value = bytes(item['args_s'][idx], "utf-8")
                 elif 0 == (arg_t & 0x01):
                     value = int.from_bytes(
                         arg, byteorder='little', signed=False)
