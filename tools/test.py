@@ -31,17 +31,20 @@ rmfile(os.path.join(projPath, 'proj/log_inc.c'))
 rmfile(os.path.join(projPath, 'proj/log_macro.h'))
 idxCnt = 0
 
-srcPath = os.path.join(dir, 'gcc-plugin.cc')
+srcPath = os.path.join(dir, 'gcc_plugin.cc')
 pluginPath = os.path.join(toolsPath, 'plugin.so')
 cmd = 'g++ ' + \
     f'{srcPath} -I`gcc -print-file-name=plugin`/include -fPIC -shared -o {pluginPath}'
 shell_cmd(cmd)
 
-srcPath = os.path.join(dir, 'file-id.c')
-fileIdProcPath = os.path.join(toolsPath, 'file-id')
+# file_id converts the path of a file to a string which identify the file and could be
+# transed into C by compiler.
+srcPath = os.path.join(dir, 'file_id.c')
+fileIdProcPath = os.path.join(toolsPath, 'file_id')
 cmd = 'gcc ' + f'{srcPath} -o {fileIdProcPath}'
 shell_cmd(cmd)
 
+# build 'proj/test.c'
 srcPath = os.path.join(projPath, 'proj/test.c')
 cmd = f'{fileIdProcPath} {os.path.normpath(srcPath)}'
 fileId = shell_cmd(cmd)
@@ -57,7 +60,8 @@ incLines = incFile.readlines()
 incLine = incLines[-1]
 idxCnt += int(incLine.split()[2])
 
-srcPath = os.path.join(projPath, 'proj/test-copy.c')
+# build 'proj/test01.c'
+srcPath = os.path.join(projPath, 'proj/test01.c')
 cmd = f'{fileIdProcPath} {os.path.normpath(srcPath)}'
 fileId_01 = shell_cmd(cmd)
 
@@ -66,30 +70,30 @@ cmd = f'gcc -fplugin={pluginPath} -c {srcPath} {includes} -DCOMPILE_PASS=0 -D__F
     os.path.normpath(srcPath)}"\' -D__PROJ_PATH__=\'"{os.path.normpath(projPath)}"\' -D__FILE_ID__={fileId_01}'
 shell_cmd(cmd)
 
-incPath = os.path.join(projPath, 'fastlog_out', 'proj/test-copy.c.inc')
+incPath = os.path.join(projPath, 'fastlog_out', 'proj/test01.c.inc')
 incFile = open(incPath)
 incLines = incFile.readlines()
 incLine = incLines[-1]
 idxCnt += int(incLine.split()[2])
 
 srcPath = os.path.join(projPath, 'src/fastlog.c')
-cmd = 'gcc -c -g ' + srcPath + ' ' + includes + ' -DCOMPILE_PASS=1'
+cmd = 'gcc -c -g -o build/fastlog.o ' + srcPath + ' ' + includes + ' -DCOMPILE_PASS=1'
 shell_cmd(cmd)
 
 idxCnt = (((idxCnt+1)//64)+1)*64
 print(idxCnt)
 srcPath = os.path.join(projPath, 'proj/fastlog_test.c')
-cmd = 'gcc -c -g ' + srcPath + ' ' + includes + \
+cmd = 'gcc -c -g -o build/fastlog_test.o ' + srcPath + ' ' + includes + \
     f' -DCOMPILE_PASS=1  -DFASTLOG_MODULE_SIZE_test={idxCnt}'
 shell_cmd(cmd)
 
 srcPath = os.path.join(projPath, 'proj/test.c')
-cmd = 'gcc -c -g ' + srcPath + ' ' + includes + \
+cmd = 'gcc -c -g -o build/test.o ' + srcPath + ' ' + includes + \
     ' -DCOMPILE_PASS=1 -D__FILE_ID__=' + fileId
 shell_cmd(cmd)
 
-srcPath = os.path.join(projPath, 'proj/test-copy.c')
-cmd = 'gcc -c -g ' + srcPath + ' ' + includes + \
+srcPath = os.path.join(projPath, 'proj/test01.c')
+cmd = 'gcc -c -g -o build/test01.o ' + srcPath + ' ' + includes + \
     ' -DCOMPILE_PASS=1 -D__FILE_ID__=' + fileId_01
 shell_cmd(cmd)
 
@@ -130,13 +134,13 @@ fastlog_lines_f.write(print_json)
 fastlog_lines_f.close()
 
 srcPath = os.path.join(projPath, 'proj/log_inc.c')
-cmd = 'gcc -c -g ' + srcPath + ' -D__LOG_IDX_FAKE'
+cmd = 'gcc -c -g ' + srcPath + ' -D__LOG_IDX_FAKE' + ' -o build/log_inc.o'
 shell_cmd(cmd)
 
-cmd = 'gcc ' + ' -o Test ' + ' test.o test-copy.o fastlog_test.o fastlog.o log_inc.o'
+cmd = 'gcc ' + ' -o build/test ' + ' build/test.o build/test01.o build/fastlog_test.o build/fastlog.o build/log_inc.o'
 shell_cmd(cmd)
 
-cmd = './Test'
+cmd = './build/test'
 shell_cmd(cmd)
 
 time.sleep(1)
