@@ -454,13 +454,19 @@ void make_idx(struct macro_rec *np) {
             ",%d,%d,%d,%d"
             ",%d,%d,%d,%d"
             ",%d,%d,%d,%d"
-            ",%d,%d,%d,%d);\n",
+            ",%d,%d,%d,%d"
+            ",\"%s\",\"%s\",\"%s\",\"%s\""
+            ",\"%s\",\"%s\",\"%s\",\"%s\""
+            ",\"%s\",\"%s\",\"%s\",\"%s\");\n",
 
             np->argts[0], np->argts[1], np->argts[2], np->argts[3], np->argts[4], np->argts[5],
             np->argts[6], np->argts[7], np->argts[8], np->argts[9], np->argts[10], np->argts[11],
 
             np->argss[0], np->argss[1], np->argss[2], np->argss[3], np->argss[4], np->argss[5],
-            np->argss[6], np->argss[7], np->argss[8], np->argss[9], np->argss[10], np->argss[11]);
+            np->argss[6], np->argss[7], np->argss[8], np->argss[9], np->argss[10], np->argss[11],
+
+            np->arg_str[0], np->arg_str[1], np->arg_str[2], np->arg_str[3], np->arg_str[4], np->arg_str[5],
+            np->arg_str[6], np->arg_str[7], np->arg_str[8], np->arg_str[9], np->arg_str[10], np->arg_str[11]);
 
     write(idx_fd, str, strlen(str));
 }
@@ -499,6 +505,9 @@ static void get_call_expression(tree node) {
         LIST_INSERT_HEAD(&macro_rec_head, ptr, list);
         macro_rec_cnt++;
 
+        for (int i = 0; i < 16; ++i) {
+            ptr->arg_str[i] = "Null";
+        }
         ptr->macro_name = func_name;
         ptr->fmt = get_call_exp_fmt(CALL_EXPR_ARG(node, 0));
         // print(ptr->fmt);
@@ -507,13 +516,14 @@ static void get_call_expression(tree node) {
         for (int i = 0; i < call_expr_nargs(node); ++i) {
             print("arg" << i);
             int type = get_type(TREE_TYPE(CALL_EXPR_ARG(node, i)));
-            // if (type_pointer_char == type) {
-            //     const char *str = get_call_exp_fmt(CALL_EXPR_ARG(node, i));
-            //     if (NULL != str) {
-            //         ptr->arg_str[i] = str;
-            //         type = type_string;
-            //     }
-            // }
+            if (type_pointer_char == type) {
+                const char *str = get_call_exp_fmt(CALL_EXPR_ARG(node, i));
+                if (NULL != str) {
+                    ptr->arg_str[i] = str;
+                    // type = type_string;
+                    print(str);
+                }
+            }
             ptr->argts[i] = type;
             ptr->argss[i] = type_size[type];
             traverse_tree(CALL_EXPR_ARG(node, i));

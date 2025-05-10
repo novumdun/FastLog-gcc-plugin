@@ -1,9 +1,8 @@
 from fastlog_display import display_flog
+from fastlog import make_records
 import subprocess
 import os
 import time
-import re
-import json
 
 
 def shell_cmd(cmd: str):
@@ -102,36 +101,7 @@ cmd = 'gcc -E -c ' + srcPath + ' > ./fastlog_out/log_inc.c.i'
 shell_cmd(cmd)
 
 log_inc_fd = open('./fastlog_out/log_inc.c.i')
-print_items = {}
-while (1):
-    line = log_inc_fd.readline()
-    if (not line):
-        break
-    pattern = re.compile(
-        r' ?unsigned short FASTLOG_MACRO__[^=]+_(\d+)_log_idx = (\d+); LOG_IDX_FAKE\(([^\)]+)\);')
-    result = pattern.findall(line)
-    if (result):
-        print(result[0])
-        line_num = result[0][0]
-        line_rec_idx = result[0][1]
-        line_rec = result[0][2]
-
-        item = line_rec.split(",")
-        args = [int(item[i]) for i in range(16, 26)]
-        args_t = [int(item[i]) for i in range(4, 14)]
-        if item[1][0] == '"':
-            _str = item[1][1:-1]
-        else:
-            _str = int(item[1])
-        print_items[line_rec_idx] = {'line': line_num,
-                                     'str': _str, 'args': args, 'args_t': args_t, 'file': item[0][1:-1]}
-
-fastlog_lines_file = os.path.join(
-    projPath, 'fastlog_out', "fastlog_lines.json")
-fastlog_lines_f = open(fastlog_lines_file, mode='w')
-print_json = json.dumps(print_items)
-fastlog_lines_f.write(print_json)
-fastlog_lines_f.close()
+make_records(log_inc_fd, projPath)
 
 srcPath = os.path.join(projPath, 'proj/log_inc.c')
 cmd = 'gcc -c -g ' + srcPath + ' -D__LOG_IDX_FAKE' + ' -o build/log_inc.o'
