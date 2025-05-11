@@ -69,7 +69,7 @@ int(type_size[]) = {
 };
 
 typedef struct macro_rec {
-    LIST_ENTRY(macro_rec) list;
+    STAILQ_ENTRY(macro_rec) list;
     const char *macro_name;
     char argc;
     char argts[16];
@@ -77,7 +77,7 @@ typedef struct macro_rec {
     const char *arg_str[16];
 } macro_rec_t;
 
-LIST_HEAD(listhead, macro_rec);
+STAILQ_HEAD(listhead, macro_rec);
 struct listhead macro_rec_head;
 int macro_rec_cnt;
 
@@ -511,7 +511,7 @@ static void get_call_expression(tree node) {
 
         struct macro_rec *ptr = new (struct macro_rec);
         memset(ptr, 0, sizeof(struct macro_rec));
-        LIST_INSERT_HEAD(&macro_rec_head, ptr, list);
+        STAILQ_INSERT_TAIL(&macro_rec_head, ptr, list);
         macro_rec_cnt++;
 
         for (int i = 0; i < 16; ++i) {
@@ -899,7 +899,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
     rec_fd = fd;
 
     struct macro_rec *np;
-    LIST_FOREACH(np, &macro_rec_head, list) {
+    STAILQ_FOREACH(np, &macro_rec_head, list) {
         make_macro(np);
         make_idx(np);
     }
@@ -908,7 +908,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
 }
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version) {
-    LIST_INIT(&macro_rec_head);
+    STAILQ_INIT(&macro_rec_head);
     register_callback(plugin_info->base_name, PLUGIN_PRE_GENERICIZE, pre_genericize_callback, NULL);
     register_callback(plugin_info->base_name, PLUGIN_FINISH, finish_callback, NULL);
     return 0;
