@@ -6,7 +6,7 @@
 #endif
 
 
-int test(void) {
+int test01(void) {
     fastlog("%d %d", 99, 100 + 1234);
     return 0;
 }

@@ -23,9 +23,9 @@ def frame_deal(recordItems, datas):
             arg_size = item['args'][idx]
             arg_t = item['args_t'][idx]
             arg_val = datas[pos: (pos + arg_size)]
-            if 7 == arg_t:
+            if 9 == arg_t:
                 value = c_double(struct.unpack('f', arg_val)[0])
-            elif 8 == arg_t:
+            elif 10 == arg_t:
                 value = c_double(struct.unpack('d', arg_val)[0])
             elif 12 == arg_t:
                 arg_size = 0
