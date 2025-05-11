@@ -19,15 +19,13 @@ def make_records(log_inc_fd, projPath):
             line_rec = result[0][2]
 
             item = line_rec.split(",")
-            args = [int(item[i]) for i in range(16, 26)]
-            args_t = [int(item[i]) for i in range(4, 14)]
-            args_s = [item[i][1:-1] for i in range(28, 38)]
-            if item[1][0] == '"':
+            args = [int(item[i]) for i in range(0x12, 0x22)]
+            args_t = [int(item[i]) for i in range(2, 0x12)]
+            args_s = [item[i][1:-1] for i in range(0x22, 0x32)]
+            if args_s[1][0] == '"':
                 _str = item[1][1:-1]
-            else:
-                _str = int(item[1])
             print_items[line_rec_idx] = {'line': line_num,
-                                        'str': _str, 'args': args, 'args_t': args_t, 'args_s': args_s, 'file': item[0][1:-1]}
+                                         'argc': int(item[1]), 'args': args, 'args_t': args_t, 'args_s': args_s, 'file': item[0][1:-1]}
 
     fastlog_lines_file = os.path.join(
         projPath, 'fastlog_out', "fastlog_lines.json")

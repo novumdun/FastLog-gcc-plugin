@@ -16,48 +16,40 @@ def frame_deal(recordItems, datas):
     addr = str(int(datas[2]) + (int(datas[3]) << 8))
     if addr in recordItems:
         item = recordItems[addr]
-
-        item_str = item['str']
         pos = 4
-        if (item['str'] == -1):
-            while (int(datas[pos]) != 0):
-                pos += 1
-            item_str = datas[4:pos].decode("utf-8")
-            pos += 1
-
         # item_str = item_str.replace("%s", "%p")
-
-        args_p = pos
-        args_c = 0
-        args_array = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        for idx, arg_len in enumerate(item['args']):
-            if arg_len:
-                arg_t = item['args_t'][idx]
-                arg = datas[args_p: (args_p + arg_len)]
-                if 7 == arg_t:
-                    value = c_double(struct.unpack('f', arg)[0])
-                elif 8 == arg_t:
-                    value = c_double(struct.unpack('d', arg)[0])
-                elif 1 == (arg_t & 0x01):
-                    value = int.from_bytes(
-                        arg, byteorder='little', signed=True)
-                elif 12 == arg_t:
-                    value = bytes(item['args_s'][idx], "utf-8")
-                elif 0 == (arg_t & 0x01):
-                    value = int.from_bytes(
-                        arg, byteorder='little', signed=False)
-
-                args_array[args_c] = value
-                args_c += 1
-                args_p += arg_len
-        # print(args_array)
+        args_array = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        for idx in range(0, item['argc']):
+            arg_size = item['args'][idx]
+            arg_t = item['args_t'][idx]
+            arg_val = datas[pos: (pos + arg_size)]
+            if 7 == arg_t:
+                value = c_double(struct.unpack('f', arg_val)[0])
+            elif 8 == arg_t:
+                value = c_double(struct.unpack('d', arg_val)[0])
+            elif 12 == arg_t:
+                arg_size = 0
+                while (int(datas[pos+arg_size]) != 0):
+                    arg_size += 1
+                arg_size += 1
+                value = datas[pos:pos + arg_size]
+            elif 13 == arg_t:
+                value = bytes(item['args_s'][idx], "utf-8")
+            elif 1 == (arg_t & 0x01):
+                value = int.from_bytes(
+                    arg_val, byteorder='little', signed=True)
+            elif 0 == (arg_t & 0x01):
+                value = int.from_bytes(
+                    arg_val, byteorder='little', signed=False)
+            pos += arg_size
+            args_array[idx] = value
 
         str_array = create_string_buffer(1000)  #
 
         sys = platform.system()
         if sys == "Windows":
             msvcrt = cdll.msvcrt
-            msvcrt.sprintf(str_array, bytes(item_str + '\r\n', encoding="utf-8"), args_array[0],
+            msvcrt.sprintf(str_array, bytes(args_array[0] + '\r\n', encoding="utf-8"),
                            args_array[1],
                            args_array[2],
                            args_array[3],
@@ -70,7 +62,7 @@ def frame_deal(recordItems, datas):
         else:
             cdll.LoadLibrary("libc.so.6")
             libc = CDLL("libc.so.6")
-            libc.sprintf(str_array, bytes(item_str + '\r\n', encoding="utf-8"), args_array[0],
+            libc.sprintf(str_array, args_array[0],
                          args_array[1],
                          args_array[2],
                          args_array[3],
