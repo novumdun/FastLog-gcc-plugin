@@ -1,8 +1,14 @@
 #include <iostream>
-#include <string.h>
+#include <cstring>
+#include <cstdlib>
+#include <cstdio>
+#include <cerrno>
+#include <new>
 #include <sys/queue.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "gcc-plugin.h"
 #include "tree.h"
@@ -22,7 +28,6 @@ int macro_fd = -1;
 int idx_fd = -1;
 int inc_fd = -1;
 int macros_fd = -1;
-int rec_fd = -1;
 
 #define TYPE_SET_UNSIGNED(type) (type + 1)
 
@@ -64,7 +69,7 @@ int(type_size[]) = {
     [type_none] = 0,         [type_char] = 1,           [type_unsigned_char] = 1,
     [type_short] = 2,        [type_unsigned_short] = 2, [type_int] = 4,
     [type_unsigned_int] = 4, [type_long_long] = 8,      [type_unsigned_long_long] = 8,
-    [type_float] = 4,        [type_double] = 8,         [type_pointer] = 8,
+    [type_float] = 4,        [type_double] = 8,         [type_pointer] = (int)sizeof(void *),
     [type_pointer_char] = 0, [type_string] = 0,
 };
 
@@ -358,6 +363,8 @@ void make_macro(struct macro_rec *np) {
     sprintf(str, "#define %s(", func);
     put_str(buf, &pos, str);
 
+    put_str(buf, &pos, "log,");
+
     for (int i = 0; i < argc; i++) {
         sprintf(str, "arg%d,", i);
         put_str(buf, &pos, str);
@@ -416,7 +423,7 @@ void make_macro(struct macro_rec *np) {
 
     sprintf(str,
             "stru_p->len = buf_size;"
-            "stru_p->idx = %s_log_idx + FASTLOG_MODULE_BASE_IDX;",
+            "stru_p->idx = %s_log_idx + fastlog_get_idx_base(log);",
             func);
     put_str(buf, &pos, str);
 
@@ -431,7 +438,7 @@ void make_macro(struct macro_rec *np) {
         put_str(buf, &pos, str);
     }
 
-    sprintf(str, "fastlog_write(fastlog_fd, (void *)stru_p, buf_size);};\n\n");
+    sprintf(str, "fastlog_write(log->fastlog_fd, (void *)stru_p, buf_size);};\n\n");
 
     put_str(buf, &pos, str);
 
@@ -846,7 +853,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
 
     char out_fd_dir[1024];
     snprintf(out_fd_dir, sizeof(out_fd_dir), "%s/fastlog_out/%s", proj_path, rela_path);
-    printf(out_fd_dir);
+    printf("%s\n", out_fd_dir);
     _mkdir(out_fd_dir);
 
     char macro_fd_path[1024];
@@ -866,8 +873,8 @@ static void finish_callback(void *gcc_data, void *user_data) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     idx_fd = fd;
-    const char *str = "#include \"c.inc.h\"\r\n";
-    write(idx_fd, str, strlen(str));
+    // const char *str = "#include \"c.inc.h\"\r\n";
+    // write(idx_fd, str, strlen(str));
 
     char inc_fd_path[1024];
     snprintf(inc_fd_path, sizeof(inc_fd_path), "%s/%s/log_inc.c", proj_path, rela_path);
@@ -877,7 +884,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
     }
     inc_fd = fd;
     char buf[1024];
-    snprintf(buf, sizeof(buf), "#include \"%s\"\n", src_fd_path);
+    snprintf(buf, sizeof(buf), "#if LOG_IDX_FAKE_STA == 0\nvoid LOG_IDX_FAKE(...);\n#else\n#define LOG_IDX_FAKE(...) \n#endif\n#include \"%s\"\n", src_fd_path);
     write(inc_fd, buf, strlen(buf));
 
     char macros_fd_path[1024];
@@ -890,14 +897,6 @@ static void finish_callback(void *gcc_data, void *user_data) {
     snprintf(buf, sizeof(buf), "#include \"%s\"\n", macro_fd_path);
     write(macros_fd, buf, strlen(buf));
 
-    char rec_fd_path[1024];
-    snprintf(rec_fd_path, sizeof(rec_fd_path), "%s/%s/log_rec", proj_path, rela_path);
-    fd = open(rec_fd_path, O_RDWR | O_CREAT | O_APPEND, 0666);
-    if (0 > fd) {
-        printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
-    }
-    rec_fd = fd;
-
     struct macro_rec *np;
     STAILQ_FOREACH(np, &macro_rec_head, list) {
         make_macro(np);
@@ -905,6 +904,20 @@ static void finish_callback(void *gcc_data, void *user_data) {
     }
     snprintf(buf, sizeof(buf), "// FASTLOG_MODULE_SIZE_ %d\n", macro_rec_cnt);
     write(idx_fd, buf, strlen(buf));
+
+    /* Close all descriptors we opened */
+    if (macro_fd >= 0) { close(macro_fd); macro_fd = -1; }
+    if (idx_fd >= 0) { close(idx_fd); idx_fd = -1; }
+    if (inc_fd >= 0) { close(inc_fd); inc_fd = -1; }
+    if (macros_fd >= 0) { close(macros_fd); macros_fd = -1; }
+
+    /* Free allocated records */
+    while (!STAILQ_EMPTY(&macro_rec_head)) {
+        np = STAILQ_FIRST(&macro_rec_head);
+        STAILQ_REMOVE_HEAD(&macro_rec_head, list);
+        delete np;
+    }
+    macro_rec_cnt = 0;
 }
 
 int plugin_init(struct plugin_name_args *plugin_info, struct plugin_gcc_version *version) {

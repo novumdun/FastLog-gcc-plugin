@@ -1,3 +1,4 @@
+#!python3
 from fastlog_display import display_flog
 from fastlog import make_records
 import subprocess
@@ -50,7 +51,7 @@ fileId = shell_cmd(cmd)
 
 includes = f'-I{projPath}/inc -I{projPath}/fastlog_out/proj'
 cmd = f'gcc -fplugin={pluginPath} -c {srcPath} {includes} -DCOMPILE_PASS=0 -D__FILE_PATH__=\'"{
-    os.path.normpath(srcPath)}"\' -D__PROJ_PATH__=\'"{os.path.normpath(projPath)}"\' -D__FILE_ID__={fileId}'
+    os.path.normpath(srcPath)}"\' -D__PROJ_PATH__=\'"{os.path.normpath(projPath)}"\'  -DFASTLOG_MODULE_SIZE_test=0 -D__FILE_ID__={fileId}'
 shell_cmd(cmd)
 
 incPath = os.path.join(projPath, 'fastlog_out', 'proj/test.c.inc')
@@ -64,9 +65,9 @@ srcPath = os.path.join(projPath, 'proj/test01.c')
 cmd = f'{fileIdProcPath} {os.path.normpath(srcPath)}'
 fileId_01 = shell_cmd(cmd)
 
-includes = f'-I{projPath}/inc -I{projPath}/fastlog_out/proj'
+includes = f'-I{projPath}/inc -I{projPath}/fastlog_out/proj -I{projPath}/third_party/cJSON'
 cmd = f'gcc -fplugin={pluginPath} -c {srcPath} {includes} -DCOMPILE_PASS=0 -D__FILE_PATH__=\'"{
-    os.path.normpath(srcPath)}"\' -D__PROJ_PATH__=\'"{os.path.normpath(projPath)}"\' -D__FILE_ID__={fileId_01}'
+    os.path.normpath(srcPath)}"\' -D__PROJ_PATH__=\'"{os.path.normpath(projPath)}"\'  -DFASTLOG_MODULE_SIZE_test=0 -D__FILE_ID__={fileId_01}'
 shell_cmd(cmd)
 
 incPath = os.path.join(projPath, 'fastlog_out', 'proj/test01.c.inc')
@@ -79,35 +80,32 @@ srcPath = os.path.join(projPath, 'src/fastlog.c')
 cmd = 'gcc -c -g -o build/fastlog.o ' + srcPath + ' ' + includes + ' -DCOMPILE_PASS=1'
 shell_cmd(cmd)
 
-idxCnt = (((idxCnt+1)//64)+1)*64
-print(idxCnt)
-srcPath = os.path.join(projPath, 'proj/fastlog_test.c')
-cmd = 'gcc -c -g -o build/fastlog_test.o ' + srcPath + ' ' + includes + \
-    f' -DCOMPILE_PASS=1  -DFASTLOG_MODULE_SIZE_test={idxCnt}'
-shell_cmd(cmd)
-
 srcPath = os.path.join(projPath, 'proj/test.c')
 cmd = 'gcc -c -g -o build/test.o ' + srcPath + ' ' + includes + \
-    ' -DCOMPILE_PASS=1 -D__FILE_ID__=' + fileId
+    f' -DCOMPILE_PASS=1 -DFASTLOG_MODULE_SIZE_test={idxCnt} -D__FILE_ID__=' + fileId
 shell_cmd(cmd)
 
 srcPath = os.path.join(projPath, 'proj/test01.c')
 cmd = 'gcc -c -g -o build/test01.o ' + srcPath + ' ' + includes + \
-    ' -DCOMPILE_PASS=1 -D__FILE_ID__=' + fileId_01
+    f' -DCOMPILE_PASS=1   -DFASTLOG_MODULE_SIZE_test={idxCnt} -D__FILE_ID__=' + fileId_01
 shell_cmd(cmd)
 
 srcPath = os.path.join(projPath, 'proj/log_inc.c')
-cmd = 'gcc -E -c ' + srcPath + ' > ./fastlog_out/log_inc.c.i'
+cmd = 'gcc -E -c -DLOG_IDX_FAKE_STA=0 ' + srcPath + ' > ./fastlog_out/log_inc.c.i'
 shell_cmd(cmd)
 
 log_inc_fd = open('./fastlog_out/log_inc.c.i')
 make_records(log_inc_fd, projPath)
 
 srcPath = os.path.join(projPath, 'proj/log_inc.c')
-cmd = 'gcc -c -g ' + srcPath + ' -D__LOG_IDX_FAKE' + ' -o build/log_inc.o'
+cmd = 'gcc -c -g ' + srcPath + ' -DLOG_IDX_FAKE_STA=1' + ' -o build/log_inc.o'
 shell_cmd(cmd)
 
-cmd = 'gcc ' + ' -o build/test ' + ' build/test.o build/test01.o build/fastlog_test.o build/fastlog.o build/log_inc.o'
+srcPath = os.path.join(projPath, 'third_party/cJSON/cJSON.c')
+cmd = 'gcc -c -g ' + srcPath + ' -o build/cJSON.o'
+shell_cmd(cmd)
+
+cmd = 'gcc ' + ' -o build/test ' + ' build/test.o build/test01.o build/fastlog.o build/log_inc.o'
 shell_cmd(cmd)
 
 cmd = './build/test'

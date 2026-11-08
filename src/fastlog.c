@@ -1,50 +1,86 @@
 /*
- * Copyright (c) 2014, dengbo19920415@hotmail.com
+ * Copyright (c) 2014-2026, dengbo19920415@hotmail.com
+ *
+ * Runtime support for FastLog.
+ * Index ranges are allocated from a shared JSON file protected by flock(),
+ * using the cJSON library for parsing/serialization.
  */
+#define _GNU_SOURCE
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-#include <stdatomic.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <string.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <limits.h>
+#include <signal.h>
 
+#include "cJSON.h"
 #include "fastlog.h"
 
-static atomic_int fastlog_cnt = 0;
-int fastlog_fd = -1;
 static pthread_mutex_t fd_lock = PTHREAD_MUTEX_INITIALIZER;
+static int fd_lock_initialized = 0;
 
-int fastlog_open(const char *str) {
-    int fd = open(str, O_RDWR | O_CREAT, 0666);
-    if (0 > fd) {
-        printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
+void fastlog_init_idx_base(fastlog_t *log) {
+    if (log->idx_base >= 0) {
+        return;
     }
-    fastlog_fd = fd;
-    pthread_mutex_init(&fd_lock, NULL);
+    log->idx_base = fastlog_get_idx_base(log->idx_cnt);
+}
+
+int fastlog_open(fastlog_t *log, const char *str, int size) {
+    log->idx_cnt = size;
+    fastlog_init_idx_base(log);
+
+    if (!str)
+        return -1;
+    int fd = open(str, O_RDWR | O_CREAT | O_APPEND, 0666);
+    if (fd < 0) {
+        fprintf(stderr, "%s:%d open(\"%s\") failed: %s\n", __FILE__, __LINE__, str, strerror(errno));
+        return -1;
+    }
+    log->log_fd = fd;
+
+    if (!fd_lock_initialized) {
+        pthread_mutex_init(&fd_lock, NULL);
+        fd_lock_initialized = 1;
+    }
     return fd;
 }
 
-int fastlog_get_mode_base(int mode_size) {
-    int base = atomic_fetch_add(&fastlog_cnt, mode_size);
-    return base;
-}
-
-int fastlog_write(int fd, struct autogen_log_stru *buff, int len) {
-    int count = 0;
-    int size = len;
-
-    if (fd < 0) {
+int fastlog_write(fastlog_t *log, struct autogen_log_stru *buff, int len) {
+    if (log->log_fd < 0 || !buff || len <= 0)
         return -1;
-    }
-    while (count < size) {
+
+    int written = 0;
+    const char *p = (const char *)buff;
+
+    while (written < len) {
         pthread_mutex_lock(&fd_lock);
-        count = write(fd, (char *)buff + count, size - count);
+        ssize_t n = write(log->log_fd, p + written, (size_t)(len - written));
         pthread_mutex_unlock(&fd_lock);
-        size = size - count;
-        if (count < 0) {
+
+        if (n < 0) {
+            if (errno == EINTR)
+                continue;
+            fprintf(stderr, "%s:%d write failed: %s\n", __FILE__, __LINE__, strerror(errno));
             return -1;
         }
+        if (n == 0)
+            return -1;
+        written += (int)n;
     }
     return 0;
+}
+
+void fastlog_close(fastlog_t *log) {
+    if (log->log_fd >= 0) {
+        close(log->log_fd);
+        log->log_fd = -1;
+    }
 }
