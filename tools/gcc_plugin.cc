@@ -21,6 +21,8 @@
 #include "tree-pretty-print.h"
 #include "tree-iterator.h"
 
+#define KB  1024
+
 int cnt = 0;
 const char *file_path;
 const char *proj_path;
@@ -356,38 +358,29 @@ void make_macro(struct macro_rec *np) {
     const char *func = np->macro_name;
     int argc = np->argc;
     char *argts = np->argts;
-    char buf[8192 * 2];
+    char buf[16 * KB];
     int pos = 0;
-    char str[2048];
+    char str[KB];
 
-    sprintf(str, "#define %s(", func);
-    put_str(buf, &pos, str);
-
-    put_str(buf, &pos, "log,");
-
+    char arg_list[2 * KB];
+    pos = 0;
     for (int i = 0; i < argc; i++) {
         sprintf(str, "arg%d,", i);
-        put_str(buf, &pos, str);
+        put_str(arg_list, &pos, str);
     }
-    buf[pos - 1] = ')';
+    arg_list[pos - 1] = '\0';
 
-    sprintf(str, "extern unsigned short %s_log_idx; {", func);
-    put_str(buf, &pos, str);
-
+    char len_arg[2 * KB] = {0};
+    pos = 0;
     for (int i = 0; i < argc; i++) {
         if (type_pointer_char == np->argts[i]) {
-            sprintf(str, "int len_arg%d= strlen(arg%d)+1; ", i, i);
-            put_str(buf, &pos, str);
+            sprintf(str, "int len_arg%d = strlen(arg%d)+1; ", i, i);
+            put_str(len_arg, &pos, str);
         }
     }
 
-    sprintf(str,
-            "struct autogen_%s_log_stru { "
-            "unsigned short len; "
-            "unsigned short idx; ",
-            func);
-    put_str(buf, &pos, str);
-
+    char member[2 * KB];
+    pos = 0;
     for (int i = 0; i < argc; i++) {
         if (type_pointer_char == np->argts[i]) {
             sprintf(str, "char member%d[len_arg%d]; ", i, i);
@@ -396,14 +389,11 @@ void make_macro(struct macro_rec *np) {
         } else {
             sprintf(str, "%s member%d; ", type_to_str(argts[i]), i);
         }
-        put_str(buf, &pos, str);
+        put_str(member, &pos, str);
     }
 
-    sprintf(str, " } __attribute__((__packed__)) *stru_p;");
-    put_str(buf, &pos, str);
-
-    sprintf(str, "int buf_size = 2*sizeof(unsigned short)");
-    put_str(buf, &pos, str);
+    char member_len[2 * KB];
+    pos = 0;
     for (int i = 0; i < argc; i++) {
         if (type_pointer_char == np->argts[i]) {
             sprintf(str, "+len_arg%d", i);
@@ -412,20 +402,11 @@ void make_macro(struct macro_rec *np) {
         } else {
             sprintf(str, "+sizeof(stru_p->member%d) ", i);
         }
-        put_str(buf, &pos, str);
+        put_str(member_len, &pos, str);
     }
-    sprintf(str, ";");
-    put_str(buf, &pos, str);
 
-    sprintf(str, "char stru_buf[buf_size]; stru_p = (struct autogen_%s_log_stru *)stru_buf; ", func);
-    put_str(buf, &pos, str);
-
-    sprintf(str,
-            "stru_p->len = buf_size;"
-            "stru_p->idx = %s_log_idx + fastlog_get_idx_base(log);",
-            func);
-    put_str(buf, &pos, str);
-
+    char member_set[2 * KB];
+    pos = 0;
     for (int i = 0; i < argc; i++) {
         if (type_pointer_char == np->argts[i]) {
             sprintf(str, "memcpy(stru_p->member%d, arg%d, len_arg%d); ", i, i, i);
@@ -434,20 +415,38 @@ void make_macro(struct macro_rec *np) {
         } else {
             sprintf(str, "stru_p->member%d = (arg%d); ", i, i);
         }
-        put_str(buf, &pos, str);
+        put_str(member_set, &pos, str);
     }
 
-    sprintf(str, "fastlog_t *_log=log; fastlog_write(_log, (void *)stru_p, buf_size);};\n\n");
+    const char *format = 
+    "#define %s(log, %s)                                                                                                \\\n"
+    "extern unsigned short %s_log_idx;                                                                                  \\\n"
+    "{                                                                                                                  \\\n"
+    "    %s                                                                                                             \\\n"
+    "    struct                                                                                                         \\\n"
+    "        autogen_%s_log_stru {                                                                                      \\\n"
+    "        unsigned short len;                                                                                        \\\n"
+    "        unsigned short idx;                                                                                        \\\n"
+    "        %s                                                                                                         \\\n"
+    "    } __attribute__((__packed__)) * stru_p;                                                                        \\\n"
+    "    int buf_size = 2 * sizeof(unsigned short) + %s;                                                                \\\n"
+    "    char stru_buf[buf_size];                                                                                       \\\n"
+    "    stru_p =(struct autogen_%s_log_stru *)stru_buf;                                                                \\\n"
+    "    stru_p->len = buf_size;                                                                                        \\\n"
+    "    stru_p->idx = %s_log_idx + fastlog_get_idx_base(log);                                                          \\\n"
+    "    %s                                                                                                             \\\n"
+    "    fastlog_t *_log = log;                                                                                         \\\n"
+    "    fastlog_write(_log, (void *)stru_p, buf_size);                                                                 \\\n"
+    "};\n\n";
+    snprintf(buf, sizeof(buf) - 1, format, func, arg_list, func, len_arg,  func, member, member_len , func, func, member_set);
 
-    put_str(buf, &pos, str);
-
-    write(macro_fd, buf, pos);
+    write(macro_fd, buf, strlen(buf));
 
     // print(buf);
 }
 
 void make_idx(struct macro_rec *np) {
-    char str[2048];
+    char str[2 * KB];
 
     sprintf(str,
             "unsigned short %s_log_idx = __COUNTER__; "
@@ -885,7 +884,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     inc_fd = fd;
-    char buf[1024];
+    char buf[1024 + 64];
     snprintf(buf, sizeof(buf), "#include \"%s\"\n", src_fd_path);
     write(inc_fd, buf, strlen(buf));
 
