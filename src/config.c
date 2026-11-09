@@ -5,22 +5,19 @@
  * Index ranges are allocated from a shared JSON file protected by flock(),
  * using the cJSON library for parsing/serialization.
  */
-#include <stdarg.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
 #include <string.h>
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <limits.h>
-#include <signal.h>
+#include <semaphore.h>
 
 #include "cJSON.h"
-#include "fastlog.h"
 
 static int is_pid_alive(pid_t pid) {
     if (pid <= 0)
@@ -159,15 +156,15 @@ static void prune_dead_pids(cJSON *root) {
 }
 
 /*
- * Allocate a contiguous index range of `mode_size` slots.
+ * Allocate a contiguous index range of `size` slots.
  * The allocation is recorded under the current process name + pid
  * in the shared JSON file.  Dead PIDs belonging to the same process
  * name (and all other clients) are pruned first.
  *
  * Returns the start index (>= 0) or -1 on error.
  */
-int fastlog_get_idx_base_from_config(int cnt, char *index_file_name) {
-    if (mode_size <= 0)
+int fastlog_get_idx_base_from_config(int size, char *index_file_name) {
+    if (size <= 0)
         return -1;
 
     char proc_name[64];
@@ -177,7 +174,7 @@ int fastlog_get_idx_base_from_config(int cnt, char *index_file_name) {
     snprintf(pid_str, sizeof(pid_str), "%d", (int)my_pid);
 
     char index_sem_name[64];
-    sprintf(index_sem_name, sizeof(index_file_name) - 1, "/%s_sem", index_file_name);
+    snprintf(index_sem_name, sizeof(index_sem_name) - 1, "/%s_sem", index_file_name);
     sem_t *alloc_lock = sem_open(index_sem_name, O_CREAT, 0666, 1);
     if (alloc_lock == SEM_FAILED) {
         perror("sem_open");
@@ -187,7 +184,7 @@ int fastlog_get_idx_base_from_config(int cnt, char *index_file_name) {
     sem_wait(alloc_lock);
 
     char index_file_path[64];
-    sprintf(index_file_path, sizeof(index_file_name) - 1, "/tmp/%s", index_file_name);
+    snprintf(index_file_path, sizeof(index_sem_name) - 1, "/tmp/%s", index_file_name);
     int fd = open(index_file_path, O_RDWR | O_CREAT, 0666);
     if (fd < 0) {
         fprintf(stderr, "fastlog: open index file \"%s\": %s\n", index_file_path, strerror(errno));
@@ -228,7 +225,7 @@ int fastlog_get_idx_base_from_config(int cnt, char *index_file_name) {
     /* 4. Allocate from the high-water mark */
     cJSON *next_item = cJSON_GetObjectItem(root, "next_index");
     int start = next_item ? next_item->valueint : 0;
-    int end = start + mode_size;
+    int end = start + size;
     if (end < start) { /* overflow */
         cJSON_Delete(root);
         close(fd);

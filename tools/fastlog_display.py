@@ -75,7 +75,7 @@ def frame_deal(recordItems, datas):
         print(str_array.value.decode('utf-8'))
 
 
-def display_flog():
+def display_flog(flog_path):
     dir = os.path.dirname(__file__)
     recordJsonFile = open(os.path.join(
         dir, '../fastlog_out/fastlog_lines.json'), mode='r')
@@ -83,8 +83,7 @@ def display_flog():
     recordJsonFile.close()
     recordItems = json.loads(recordJson)
 
-    fp = open(os.path.join(
-        dir, '../fastlog_out/flog'), mode='rb')
+    fp = open(flog_path, mode='rb')
     context = fp.read()
     while (context):
         size = int(context[0]) + (int(context[1]) << 8)

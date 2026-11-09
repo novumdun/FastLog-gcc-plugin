@@ -438,7 +438,7 @@ void make_macro(struct macro_rec *np) {
         put_str(buf, &pos, str);
     }
 
-    sprintf(str, "fastlog_write(log->fastlog_fd, (void *)stru_p, buf_size);};\n\n");
+    sprintf(str, "fastlog_t *_log=log; fastlog_write(_log, (void *)stru_p, buf_size);};\n\n");
 
     put_str(buf, &pos, str);
 
@@ -876,8 +876,12 @@ static void finish_callback(void *gcc_data, void *user_data) {
     // const char *str = "#include \"c.inc.h\"\r\n";
     // write(idx_fd, str, strlen(str));
 
+    snprintf(out_fd_dir, sizeof(out_fd_dir), "%s/fastlog_out/sys", proj_path);
+    printf("%s\n", out_fd_dir);
+    _mkdir(out_fd_dir);
+
     char inc_fd_path[1024];
-    snprintf(inc_fd_path, sizeof(inc_fd_path), "%s/%s/log_inc.c", proj_path, rela_path);
+    snprintf(inc_fd_path, sizeof(inc_fd_path), "%s/fastlog_out/sys/log_inc.c", proj_path, rela_path);
     fd = open(inc_fd_path, O_RDWR | O_CREAT | O_APPEND, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
@@ -888,7 +892,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
     write(inc_fd, buf, strlen(buf));
 
     char macros_fd_path[1024];
-    snprintf(macros_fd_path, sizeof(macros_fd_path), "%s/%s/log_macro.h", proj_path, rela_path);
+    snprintf(macros_fd_path, sizeof(macros_fd_path), "%s/fastlog_out/sys/log_macro.h", proj_path, rela_path);
     fd = open(macros_fd_path, O_RDWR | O_CREAT | O_APPEND, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);

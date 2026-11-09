@@ -31,8 +31,6 @@ struct autogen_log_stru {
     unsigned short idx;
 } __attribute__((__packed__));
 
-#define FASTLOG_MODULE_SIZE(name) MACRO_CAT(FASTLOG_MODULE_SIZE_, name)
-
 static inline int fastlog_get_idx_base(fastlog_t *log) {
     return log->idx_base;
 }
@@ -41,7 +39,9 @@ extern int fastlog_open(fastlog_t *log, const char *str, int size);
 extern int fastlog_write(fastlog_t *log, struct autogen_log_stru *buff, int len);
 extern void fastlog_close(fastlog_t *log);
 
-#if COMPILE_PASS == COMPILE_PASS_GEN_MACRO
+#if defined(COMPILE_PASS) && (COMPILE_PASS == COMPILE_PASS_GEN_MACRO)
+
+#define FASTLOG_MODULE_SIZE(name) MACRO_CAT(FASTLOG_MODULE_SIZE_, name)
 
 #define fastlog(log, fmt, ...)                                                                                         \
     {                                                                                                                  \
@@ -57,6 +57,8 @@ static void fastlog_tmp_func(void) {
 
 #else
 
+#define FASTLOG_MODULE_SIZE(name) MACRO_CAT(FASTLOG_MODULE_SIZE_, name)
+
 /*
  * Shared index allocation (JSON file + flock).
  *
@@ -68,7 +70,7 @@ extern int fastlog_get_idx_base_from_config(int mode_size, char *index_file_name
 
 #define fastlog(log, fmt, ...)                                                                                         \
     {                                                                                                                  \
-        MACRO_CAT_5(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__, _log_idx)(log, fmt __VA_OPT__(, ) __VA_ARGS__);          \
+        MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)((log), fmt __VA_OPT__(, ) __VA_ARGS__);          \
     }
 #endif
 

@@ -10,6 +10,7 @@
 #define _LINE_STR(x)  __LINE_STR(x)
 #define LINE_STR      _LINE_STR(__LINE__)
 
+extern int FASTLOG_MODULE_SIZE(test);
 extern int test01(fastlog_t *log);
 
 const char *test_func_1(void) {
@@ -37,7 +38,7 @@ int main(int argc, char **argv) {
     char str_arr[32];
     char *str = "Hello world, %d %s";
     memcpy(str_arr, str, strlen(str));
-    fastlog(str_arr, __LINE__, LINE_STR);
+    fastlog(&log, str_arr, __LINE__, LINE_STR);
 
     p = test_func_1();
     fastlog(&log, p);
