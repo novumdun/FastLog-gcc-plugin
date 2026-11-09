@@ -28,7 +28,7 @@ def make_records(log_inc_fd, projPath):
                                          'argc': int(item[1]), 'args': args, 'args_t': args_t, 'args_s': args_s, 'file': item[0][1:-1]}
 
     fastlog_lines_file = os.path.join(
-        projPath, 'fastlog_out', "fastlog_lines.json")
+        projPath, 'fastlog_out/sys/fastlog_lines.json')
     fastlog_lines_f = open(fastlog_lines_file, mode='w')
     print_json = json.dumps(print_items)
     fastlog_lines_f.write(print_json)

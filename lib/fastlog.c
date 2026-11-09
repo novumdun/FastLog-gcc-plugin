@@ -5,7 +5,7 @@
  * Index ranges are allocated from a shared JSON file protected by flock(),
  * using the cJSON library for parsing/serialization.
  */
-#define _GNU_SOURCE
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,16 +21,16 @@
 #include <signal.h>
 
 #include "cJSON.h"
+#include "shared_mutex.h"
 #include "fastlog.h"
 
-static pthread_mutex_t fd_lock = PTHREAD_MUTEX_INITIALIZER;
-static int fd_lock_initialized = 0;
-
-void fastlog_init_idx_base(fastlog_t *log, const char *log_file_name) {
+int fastlog_init_idx_base(fastlog_t *log) {
     if (log->idx_base > 0) {
-        return;
+        return 0;
     }
-    log->idx_base = fastlog_get_idx_base_from_config(log->idx_cnt, log_file_name);
+
+    int ret = fastlog_get_idx_base_from_config(log);
+    return ret;
 }
 
 char *get_base_name(char *path) {
@@ -45,13 +45,27 @@ char *get_base_name(char *path) {
 }
 
 int fastlog_open(fastlog_t *log, const char *log_file_path, int size) {
-    log->idx_cnt = size;
-
-    char *log_file_name = get_base_name(log_file_path);
-    fastlog_init_idx_base(log, log_file_name);
-
-    if (!log_file_path)
+    if (log == NULL) {
         return -1;
+    }
+
+    if (log_file_path == NULL) {
+        return -1;
+    }
+
+    if (size <= 0) {
+        return -1;
+    }
+
+    log->idx_cnt = size;
+    strncpy(log->log_file_path, log_file_path, sizeof(log->log_file_path));
+    log->log_file_name = get_base_name(log_file_path);
+
+    int ret = fastlog_init_idx_base(log);
+    if (ret != 0) {
+        return -1;
+    }
+
     int fd = open(log_file_path, O_RDWR | O_CREAT | O_APPEND, 0666);
     if (fd < 0) {
         fprintf(stderr, "%s:%d open(\"%s\") failed: %s\n", __FILE__, __LINE__, log_file_path, strerror(errno));
@@ -59,10 +73,13 @@ int fastlog_open(fastlog_t *log, const char *log_file_path, int size) {
     }
     log->log_fd = fd;
 
-    if (!fd_lock_initialized) {
-        pthread_mutex_init(&fd_lock, NULL);
-        fd_lock_initialized = 1;
+    char log_file_mutex_name[64];
+    snprintf(log_file_mutex_name, sizeof(log_file_mutex_name) - 1, "/%s_mutex", log->log_file_name);
+    ret = shared_mutex_init(&log->log_mutex, log_file_mutex_name);
+    if (ret != 0) {
+        return -1;
     }
+
     return fd;
 }
 
@@ -74,9 +91,9 @@ int fastlog_write(fastlog_t *log, struct autogen_log_stru *buff, int len) {
     const char *p = (const char *)buff;
 
     while (written < len) {
-        pthread_mutex_lock(&fd_lock);
+        shared_mutex_lock(&log->log_mutex);
         ssize_t n = write(log->log_fd, p + written, (size_t)(len - written));
-        pthread_mutex_unlock(&fd_lock);
+        shared_mutex_unlock(&log->log_mutex);
 
         if (n < 0) {
             if (errno == EINTR)
@@ -96,4 +113,5 @@ void fastlog_close(fastlog_t *log) {
         close(log->log_fd);
         log->log_fd = -1;
     }
+    return;
 }

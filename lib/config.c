@@ -18,6 +18,15 @@
 #include <semaphore.h>
 
 #include "cJSON.h"
+#include "pre_fastlog.h"
+
+typedef struct idx_range {
+    unsigned int start;
+    unsigned int end;
+} idx_range_t;
+
+#define IDX_START 0x4000
+#define IDX_SEC   0x4000
 
 static int is_pid_alive(pid_t pid) {
     if (pid <= 0)
@@ -54,6 +63,7 @@ static void get_process_name(char *buf, size_t buflen) {
 
     strncpy(buf, "unknown", buflen - 1);
     buf[buflen - 1] = '\0';
+    return;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -99,17 +109,17 @@ static cJSON *load_db_from_fd(int fd) {
 static int save_db_to_fd(int fd, cJSON *root) {
     char *json = cJSON_Print(root);
     if (!json)
-        return -1;
+        return EINVAL;
     size_t len = strlen(json);
 
     if (ftruncate(fd, 0) < 0) {
         cJSON_free(json);
-        return -1;
+        return errno;
     }
     ssize_t n = pwrite(fd, json, len, 0);
     cJSON_free(json);
     if (n != (ssize_t)len)
-        return -1;
+        return errno;
     fsync(fd);
     return 0;
 }
@@ -117,9 +127,10 @@ static int save_db_to_fd(int fd, cJSON *root) {
 /* Ensure root has "next_index" (number) and "clients" (object). */
 static void ensure_schema(cJSON *root) {
     if (!cJSON_GetObjectItem(root, "next_index"))
-        cJSON_AddNumberToObject(root, "next_index", 0);
+        cJSON_AddNumberToObject(root, "next_index", IDX_START);
     if (!cJSON_GetObjectItem(root, "clients"))
         cJSON_AddObjectToObject(root, "clients");
+    return;
 }
 
 /*
@@ -153,6 +164,7 @@ static void prune_dead_pids(cJSON *root) {
         for (int i = 0; i < n_dead; i++)
             cJSON_DeleteItemFromObject(client, dead[i]);
     }
+    return;
 }
 
 /*
@@ -161,45 +173,50 @@ static void prune_dead_pids(cJSON *root) {
  * in the shared JSON file.  Dead PIDs belonging to the same process
  * name (and all other clients) are pruned first.
  *
- * Returns the start index (>= 0) or -1 on error.
+ * Returns the error.
  */
-int fastlog_get_idx_base_from_config(int size, char *index_file_name) {
+int fastlog_get_idx_base_from_config(fastlog_t *log) {
+    int size = log->idx_cnt;
+    char *log_file_path = log->log_file_path;
+    char *log_file_name = log->log_file_name;
+
     if (size <= 0)
-        return -1;
+        return EINVAL;
 
     char proc_name[64];
     get_process_name(proc_name, sizeof(proc_name));
     pid_t my_pid = getpid();
     char pid_str[32];
-    snprintf(pid_str, sizeof(pid_str), "%d", (int)my_pid);
+    snprintf(pid_str, sizeof(pid_str) - 1, "%d", (int)my_pid);
 
-    char index_sem_name[64];
-    snprintf(index_sem_name, sizeof(index_sem_name) - 1, "/%s_sem", index_file_name);
-    sem_t *alloc_lock = sem_open(index_sem_name, O_CREAT, 0666, 1);
-    if (alloc_lock == SEM_FAILED) {
-        perror("sem_open");
-        exit(1);
+    char index_file_mutex_name[64];
+    snprintf(index_file_mutex_name, sizeof(index_file_mutex_name) - 1, "/%s_idx_mutex", log_file_name);
+    int ret = shared_mutex_init(&log->idx_mutex, index_file_mutex_name);
+    if (ret != 0) {
+        return ret;
     }
 
-    sem_wait(alloc_lock);
+    ret = shared_mutex_lock(&log->idx_mutex);
+    if ((ret != 0) && (ret != ETIMEDOUT)) {
+        return ret;
+    }
 
     char index_file_path[64];
-    snprintf(index_file_path, sizeof(index_sem_name) - 1, "/tmp/%s", index_file_name);
+    snprintf(index_file_path, sizeof(index_file_path) - 1, "%s_idx.json", log_file_path);
     int fd = open(index_file_path, O_RDWR | O_CREAT, 0666);
     if (fd < 0) {
         fprintf(stderr, "fastlog: open index file \"%s\": %s\n", index_file_path, strerror(errno));
-        sem_post(alloc_lock);
-        return -1;
+        return errno;
     }
 
     cJSON *root = load_db_from_fd(fd);
-    if (!root) {
+    if (root == NULL) {
         /* Corrupt or unreadable → start fresh */
         root = cJSON_CreateObject();
-        if (!root) {
+        if (root == NULL) {
             close(fd);
-            sem_post(alloc_lock);
-            return -1;
+            shared_mutex_unlock(&log->idx_mutex);
+            return errno;
         }
     }
     ensure_schema(root);
@@ -224,36 +241,40 @@ int fastlog_get_idx_base_from_config(int size, char *index_file_name) {
 
     /* 4. Allocate from the high-water mark */
     cJSON *next_item = cJSON_GetObjectItem(root, "next_index");
-    int start = next_item ? next_item->valueint : 0;
-    int end = start + size;
+    int start = next_item ? next_item->valueint : IDX_START;
+    int _size = ((size % IDX_SEC) + 1) * IDX_SEC;
+    int end = start + _size;
     if (end < start) { /* overflow */
         cJSON_Delete(root);
         close(fd);
-        sem_post(alloc_lock);
-        return -1;
+        shared_mutex_unlock(&log->idx_mutex);
+        return EINVAL;
     }
+    log->idx_base = start;
+    log->idx_cnt = _size;
 
     /* Append [start, end] */
-    cJSON *range = cJSON_CreateArray();
-    cJSON_AddItemToArray(range, cJSON_CreateNumber(start));
-    cJSON_AddItemToArray(range, cJSON_CreateNumber(end));
-    cJSON_AddItemToArray(pid_arr, range);
+    cJSON *array = cJSON_CreateArray();
+    cJSON_AddItemToArray(array, cJSON_CreateNumber(start));
+    cJSON_AddItemToArray(array, cJSON_CreateNumber(end));
+    cJSON_AddItemToArray(pid_arr, array);
 
     /* Update next_index */
     cJSON_SetNumberValue(next_item, end);
 
     /* 5. Persist */
-    if (save_db_to_fd(fd, root) < 0) {
+    ret = save_db_to_fd(fd, root);
+    if (ret != 0) {
         fprintf(stderr, "fastlog: failed to write index file\n");
         cJSON_Delete(root);
         close(fd);
-        sem_post(alloc_lock);
-        return -1;
+        shared_mutex_unlock(&log->idx_mutex);
+        return ret;
     }
 
     cJSON_Delete(root);
     close(fd);
-    sem_post(alloc_lock);
-    sem_close(alloc_lock);
-    return start;
+    shared_mutex_unlock(&log->idx_mutex);
+    shared_mutex_deinit(&log->idx_mutex);
+    return 0;
 }

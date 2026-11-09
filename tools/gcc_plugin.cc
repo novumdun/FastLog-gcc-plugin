@@ -402,7 +402,7 @@ void make_macro(struct macro_rec *np) {
     sprintf(str, " } __attribute__((__packed__)) *stru_p;");
     put_str(buf, &pos, str);
 
-    sprintf(str, "int buf_size = 2*sizeof(unsigned short)", func);
+    sprintf(str, "int buf_size = 2*sizeof(unsigned short)");
     put_str(buf, &pos, str);
     for (int i = 0; i < argc; i++) {
         if (type_pointer_char == np->argts[i]) {
@@ -417,8 +417,7 @@ void make_macro(struct macro_rec *np) {
     sprintf(str, ";");
     put_str(buf, &pos, str);
 
-    sprintf(str, "char stru_buf[buf_size]; stru_p = (struct autogen_%s_log_stru *)stru_buf; ",
-            func);
+    sprintf(str, "char stru_buf[buf_size]; stru_p = (struct autogen_%s_log_stru *)stru_buf; ", func);
     put_str(buf, &pos, str);
 
     sprintf(str,
@@ -857,8 +856,7 @@ static void finish_callback(void *gcc_data, void *user_data) {
     _mkdir(out_fd_dir);
 
     char macro_fd_path[1024];
-    snprintf(macro_fd_path, sizeof(macro_fd_path), "%s/fastlog_out/%s.macro.h", proj_path,
-             &file_path[i]);
+    snprintf(macro_fd_path, sizeof(macro_fd_path), "%s/fastlog_out/%s.macro.h", proj_path, &file_path[i]);
     int fd = open(macro_fd_path, O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
@@ -881,18 +879,18 @@ static void finish_callback(void *gcc_data, void *user_data) {
     _mkdir(out_fd_dir);
 
     char inc_fd_path[1024];
-    snprintf(inc_fd_path, sizeof(inc_fd_path), "%s/fastlog_out/sys/log_inc.c", proj_path, rela_path);
+    snprintf(inc_fd_path, sizeof(inc_fd_path), "%s/fastlog_out/sys/log_inc.c", proj_path);
     fd = open(inc_fd_path, O_RDWR | O_CREAT | O_APPEND, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
     }
     inc_fd = fd;
     char buf[1024];
-    snprintf(buf, sizeof(buf), "#if LOG_IDX_FAKE_STA == 0\nvoid LOG_IDX_FAKE(...);\n#else\n#define LOG_IDX_FAKE(...) \n#endif\n#include \"%s\"\n", src_fd_path);
+    snprintf(buf, sizeof(buf), "#include \"%s\"\n", src_fd_path);
     write(inc_fd, buf, strlen(buf));
 
     char macros_fd_path[1024];
-    snprintf(macros_fd_path, sizeof(macros_fd_path), "%s/fastlog_out/sys/log_macro.h", proj_path, rela_path);
+    snprintf(macros_fd_path, sizeof(macros_fd_path), "%s/fastlog_out/sys/log_macro.h", proj_path);
     fd = open(macros_fd_path, O_RDWR | O_CREAT | O_APPEND, 0666);
     if (0 > fd) {
         printf("%s.%d open file fail. Err %d.", __FILE__, __LINE__, errno);
@@ -910,10 +908,22 @@ static void finish_callback(void *gcc_data, void *user_data) {
     write(idx_fd, buf, strlen(buf));
 
     /* Close all descriptors we opened */
-    if (macro_fd >= 0) { close(macro_fd); macro_fd = -1; }
-    if (idx_fd >= 0) { close(idx_fd); idx_fd = -1; }
-    if (inc_fd >= 0) { close(inc_fd); inc_fd = -1; }
-    if (macros_fd >= 0) { close(macros_fd); macros_fd = -1; }
+    if (macro_fd >= 0) {
+        close(macro_fd);
+        macro_fd = -1;
+    }
+    if (idx_fd >= 0) {
+        close(idx_fd);
+        idx_fd = -1;
+    }
+    if (inc_fd >= 0) {
+        close(inc_fd);
+        inc_fd = -1;
+    }
+    if (macros_fd >= 0) {
+        close(macros_fd);
+        macros_fd = -1;
+    }
 
     /* Free allocated records */
     while (!STAILQ_EMPTY(&macro_rec_head)) {

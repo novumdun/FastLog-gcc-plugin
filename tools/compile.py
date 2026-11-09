@@ -5,6 +5,9 @@ import subprocess
 import os
 import time
 
+fileIdProcPath = None
+pluginPath = None
+
 
 def shell_cmd(cmd: str):
     print(cmd)
@@ -23,17 +26,25 @@ def rmfile(path):
         os.remove(path)
 
 
-fileIdProcPath = None
-pluginPath = None
+def set_project(projPath):
+    mkdirs(os.path.join(projPath, 'build'))
+    mkdirs(os.path.join(projPath, 'fastlog_out/tools'))
+
+    rmfile(os.path.join(projPath, 'fastlog_out/sys/log_inc.c'))
+    rmfile(os.path.join(projPath, 'fastlog_out/sys/log_macro.h'))
+
+    srcPath = os.path.join(projPath, 'fastlog_out/sys/log_inc.c')
+    with open(srcPath, "w") as f:
+        f.write("""#if LOG_IDX_FAKE_STA == 0
+void LOG_IDX_FAKE(...);
+#else
+#define LOG_IDX_FAKE(...) 
+#endif\n\n""")
 
 
 def make_tools(projPath):
     global fileIdProcPath
     global pluginPath
-
-    mkdirs(os.path.join(projPath, 'fastlog_out/tools'))
-    rmfile(os.path.join(projPath, 'fastlog_out/sys/log_inc.c'))
-    rmfile(os.path.join(projPath, 'fastlog_out/sys/log_macro.h'))
 
     srcPath = os.path.join(projPath, 'tools/gcc_plugin.cc')
     pluginPath = os.path.join(projPath, 'fastlog_out/tools/plugin.so')
@@ -49,20 +60,34 @@ def make_tools(projPath):
     shell_cmd(cmd)
 
 
-def prebuild(projPath, file_path, includes):
+def prebuild(projPath, file_rela_path, includes):
     global fileIdProcPath
     global pluginPath
 
-    srcPath = os.path.join(projPath, file_path)
+    srcPath = os.path.join(projPath, file_rela_path)
+    fileName = os.path.basename(srcPath).replace('c', 'o')
     cmd = f'{fileIdProcPath} {os.path.normpath(srcPath)}'
     fileId = shell_cmd(cmd)
 
-    cmd = f'gcc -fplugin={pluginPath} -c {srcPath} {includes} -DCOMPILE_PASS=0 -D__FILE_PATH__=\'"{
+    cmd = f'gcc -c -o build/{fileName} -fplugin={pluginPath} -c {srcPath} {includes} -DCOMPILE_PASS=0 -D__FILE_PATH__=\'"{
         os.path.normpath(srcPath)}"\' -D__PROJ_PATH__=\'"{os.path.normpath(projPath)}"\' -D__FILE_ID__={fileId}'
     shell_cmd(cmd)
 
-    # incPath = os.path.join(projPath, 'fastlog_out', file_path+".inc")
+    # incPath = os.path.join(projPath, 'fastlog_out', file_rela_path+".inc")
     # incFile = open(incPath)
     # incLines = incFile.readlines()
     # incLine = incLines[-1]
     # idxCnt += int(incLine.split()[2])
+
+
+def build(projPath, file_rela_path, includes):
+    global fileIdProcPath
+    global pluginPath
+
+    srcPath = os.path.join(projPath, file_rela_path)
+    fileName = os.path.basename(srcPath).replace('c', 'o')
+    cmd = f'{fileIdProcPath} {os.path.normpath(srcPath)}'
+    fileId = shell_cmd(cmd)
+    includes += f' -I{os.path.join(projPath, "fastlog_out/sys")} '
+    cmd = f'gcc -c -g -o build/{fileName} {srcPath} {includes} -DCOMPILE_PASS=1 -D__FILE_ID__={fileId}'
+    shell_cmd(cmd)
