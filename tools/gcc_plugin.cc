@@ -36,7 +36,7 @@ int macros_fd = -1;
 #define TYPE_SET_UNSIGNED(type) (type + 1)
 
 /*
- * NOTE: new ids are only appended after type_string so that the numeric ids
+ * NOTE: new ids are only appended after type_string_literal so that the numeric ids
  * already written to the generated *.inc files keep their meaning.
  *
  * Every type_string* value means "the content of this char* argument is known
@@ -57,12 +57,7 @@ enum {
     type_double,
     type_pointer,
     type_pointer_char,             // char * with run-time content
-    type_string,                   // printf("abc")   (also LINE_STR, which is one literal)
-
-    type_string_func,              // __func__
-    type_string_FUNCTION,          // __FUNCTION__
-    type_string_PRETTY_FUNCTION,   // __PRETTY_FUNCTION__
-
+    type_string_literal,                   // printf("abc")   (also LINE_STR, which is one literal)
     type_string_const_array,       // const char s[] = "..."; printf(s)
     type_string_mutable_array,     // char s[] = "...";  s is not touched before printf(s)
 
@@ -72,7 +67,7 @@ enum {
 };
 
 #define IS_STRING_TYPE(t)                                                                          \
-    ((t) >= type_string && (t) <= type_string_ptr_mutable_array)
+    ((t) >= type_string_literal && (t) <= type_string_ptr_mutable_array)
 
 const char *(type_str[]) = {
     [type_none] = "none",
@@ -88,10 +83,7 @@ const char *(type_str[]) = {
     [type_double] = "double",
     [type_pointer] = "void *",
     [type_pointer_char] = "char *",
-    [type_string] = "string ",
-    [type_string_func] = "string(__func__)",
-    [type_string_FUNCTION] = "string(__FUNCTION__)",
-    [type_string_PRETTY_FUNCTION] = "string(__PRETTY_FUNCTION__)",
+    [type_string_literal] = "string(literal)",
     [type_string_const_array] = "string(const array)",
     [type_string_mutable_array] = "string(mutable array)",
     [type_string_ptr_literal] = "string(ptr to literal)",
@@ -104,10 +96,7 @@ int(type_size[]) = {
     [type_short] = 2,        [type_unsigned_short] = 2, [type_int] = 4,
     [type_unsigned_int] = 4, [type_long_long] = 8,      [type_unsigned_long_long] = 8,
     [type_float] = 4,        [type_double] = 8,         [type_pointer] = (int)sizeof(void *),
-    [type_pointer_char] = 0, [type_string] = 0,
-    [type_string_func] = 0,
-    [type_string_FUNCTION] = 0,
-    [type_string_PRETTY_FUNCTION] = 0,
+    [type_pointer_char] = 0, [type_string_literal] = 0,
     [type_string_const_array] = 0,
     [type_string_mutable_array] = 0,
     [type_string_ptr_literal] = 0,
@@ -677,24 +666,6 @@ static void scan_decl(tree decl, decl_scan &s) {
     walk_tree(&DECL_SAVED_TREE(cur_fndecl), scan_cb, &s, NULL);
 }
 
-/* 0: not a function-name decl, otherwise the matching type_string_* id */
-static int func_name_type(tree d) {
-    if (!DECL_ARTIFICIAL(d) || !DECL_NAME(d)) {
-        return 0;
-    }
-    const char *n = IDENTIFIER_POINTER(DECL_NAME(d));
-    if (!strcmp(n, "__func__")) {
-        return type_string_func;
-    }
-    if (!strcmp(n, "__FUNCTION__")) {
-        return type_string_FUNCTION;
-    }
-    if (!strcmp(n, "__PRETTY_FUNCTION__")) {
-        return type_string_PRETTY_FUNCTION;
-    }
-    return 0;
-}
-
 static bool array_is_const(tree decl) {
     return TREE_READONLY(decl) || TYPE_READONLY(TREE_TYPE(TREE_TYPE(decl)));
 }
@@ -723,31 +694,12 @@ static bool resolve_object(tree obj, bool via_ptr, str_info &si) {
 
     /* "abc" */
     if (TREE_CODE(obj) == STRING_CST) {
-        si.type = via_ptr ? type_string_ptr_literal : type_string;
+        si.type = via_ptr ? type_string_ptr_literal : type_string_literal;
         si.content = string_cst_dup(obj);
         return true;
     }
 
     if (!VAR_P(obj) || TREE_CODE(TREE_TYPE(obj)) != ARRAY_TYPE) {
-        return false;
-    }
-
-    /* __func__ / __FUNCTION__ / __PRETTY_FUNCTION__ */
-    int fn_type = func_name_type(obj);
-    if (fn_type) {
-        tree init = strip_nops(DECL_INITIAL(obj));
-        if (init && TREE_CODE(init) == STRING_CST) {
-            si.type = fn_type;
-            si.content = string_cst_dup(init);
-            return true;
-        }
-        // The initializer may not be available yet; plain function name is safe
-        // for __func__ / __FUNCTION__, but not for __PRETTY_FUNCTION__ (C++ signature).
-        if (fn_type != type_string_PRETTY_FUNCTION && cur_fndecl && DECL_NAME(cur_fndecl)) {
-            si.type = fn_type;
-            si.content = cstr_dup(IDENTIFIER_POINTER(DECL_NAME(cur_fndecl)));
-            return true;
-        }
         return false;
     }
 

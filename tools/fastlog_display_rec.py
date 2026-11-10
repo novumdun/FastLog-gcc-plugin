@@ -66,7 +66,7 @@ def frame_deal(recordItems, datas, base_dict, base_list):
                     arg_size += 1
                 arg_size += 1
                 value = datas[pos:pos + arg_size]
-            elif arg_t in [13, 14, 15, 16, 17, 18, 19, 20, 21]:
+            elif arg_t in [13, 14, 15, 16, 17, 18]:
                 value = bytes(item['args_s'][idx], "utf-8")
             elif 1 == (arg_t & 0x01):
                 value = int.from_bytes(
