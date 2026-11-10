@@ -16,7 +16,7 @@ def make_records(log_inc_path, projPath, projName):
             r' ?unsigned short FASTLOG_MACRO__[^=]+_(\d+)_log_idx = (\d+); LOG_IDX_FAKE\(([^\)]+)\);')
         result = pattern.findall(line)
         if (result):
-            print(result[0])
+            # print(result[0])
             line_num = result[0][0]
             line_rec_idx = result[0][1]
             line_rec = result[0][2]

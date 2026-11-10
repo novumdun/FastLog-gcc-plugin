@@ -59,7 +59,7 @@ int fastlog_open(fastlog_t *log, const char *log_file_path, int size) {
 
     log->idx_cnt = size;
     strncpy(log->log_file_path, log_file_path, sizeof(log->log_file_path));
-    log->log_file_name = get_base_name(log_file_path);
+    log->log_file_name = get_base_name(log->log_file_path);
 
     int ret = fastlog_init_idx_base(log);
     if (ret != 0) {

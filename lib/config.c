@@ -16,6 +16,7 @@
 #include <sys/types.h>
 #include <limits.h>
 #include <semaphore.h>
+#include <signal.h>
 
 #include "cJSON.h"
 #include "pre_fastlog.h"

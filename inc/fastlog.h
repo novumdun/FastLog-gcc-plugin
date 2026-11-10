@@ -36,7 +36,7 @@ extern void fastlog_close(fastlog_t *log);
 
 #define fastlog(log, fmt, ...)                                                                                         \
     {                                                                                                                  \
-        extern int MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(char *format, ...);                           \
+        extern int MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(const char *format, ...);                     \
         MACRO_CAT_4(FASTLOG_MACRO_, __FILE_ID__, _, __LINE__)(fmt __VA_OPT__(, ) __VA_ARGS__);                         \
     }
 
