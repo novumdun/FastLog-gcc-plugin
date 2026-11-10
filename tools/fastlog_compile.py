@@ -1,9 +1,11 @@
 #!python3
-from fastlog_display import display_flog
-from fastlog import make_records
+from tools.fastlog_display_rec import display_flog
+from tools.fastlog_make_rec import make_records
 import subprocess
 import os
 import time
+
+import inc
 
 fileIdProcPath = None
 pluginPath = None

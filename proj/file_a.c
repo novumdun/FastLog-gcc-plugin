@@ -5,7 +5,7 @@
 #endif
 
 
-int test01(fastlog_t *log) {
+int file_a_test(fastlog_t *log) {
     fastlog(log, "%d %d", 99, 100 + 1234);
     return 0;
 }

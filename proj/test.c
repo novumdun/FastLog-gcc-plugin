@@ -11,8 +11,8 @@
 #define _LINE_STR(x)  __LINE_STR(x)
 #define LINE_STR      _LINE_STR(__LINE__)
 
-extern int FASTLOG_MODULE_SIZE(test);
-extern int test01(fastlog_t *log);
+extern int FASTLOG_MODULE_SIZE(test); // You need to add this to every module using 'fastlog'
+extern int file_a_test(fastlog_t *log);
 
 const char *test_func_1(void) {
     return __func__;
@@ -26,13 +26,15 @@ int main(int argc, char **argv) {
         return -1;
     }
 
-    char *log_name = argv[1];
+    char *log_path = argv[1];
     int size = FASTLOG_MODULE_SIZE(test);
-    char log_path[PATH_MAX];
-    snprintf(log_path, sizeof(log_path) - 1, "/home/bdeng/workspaces/github_projects/FastLog-gcc-plugin/fastlog_out/%s", log_name);
     fastlog_open(&log, log_path, size);
 
     fastlog(&log, __func__);
+    fastlog(&log, __FUNCTION__ );
+    fastlog(&log, __FILE__);
+
+    fastlog(&log, "Hello world");
 
     char *fmt = "%d %s";
     fastlog(&log, fmt, 123, LINE_STR);
@@ -59,6 +61,6 @@ int main(int argc, char **argv) {
     mut[0] = 'o';
     fastlog(&log, mut);
 
-    test01(&log);
+    file_a_test(&log);
     return 0;
 }

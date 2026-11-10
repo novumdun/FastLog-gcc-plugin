@@ -3,7 +3,10 @@ import json
 import os
 import re
 
-def make_records(log_inc_fd, projPath, projName):
+import inc
+
+def make_records(log_inc_path, projPath, projName):
+    log_inc_fd = open(log_inc_path)
     print_items = {}
     while (1):
         line = log_inc_fd.readline()

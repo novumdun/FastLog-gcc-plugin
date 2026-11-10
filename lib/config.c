@@ -222,7 +222,7 @@ int fastlog_get_idx_base_from_config(fastlog_t *log) {
     ensure_schema(root);
 
     /* 1. Prune dead PIDs */
-    prune_dead_pids(root);
+    // prune_dead_pids(root);
 
     /* 2. Locate / create our client object */
     cJSON *clients = cJSON_GetObjectItem(root, "clients");
@@ -241,9 +241,9 @@ int fastlog_get_idx_base_from_config(fastlog_t *log) {
 
     /* 4. Allocate from the high-water mark */
     cJSON *next_item = cJSON_GetObjectItem(root, "next_index");
-    int start = next_item ? next_item->valueint : IDX_START;
-    int _size = ((size / IDX_SEC) + 1) * IDX_SEC;
-    int end = start + _size;
+    unsigned int start = next_item ? next_item->valueint : IDX_START;
+    unsigned int _size = ((size / IDX_SEC) + 1) * IDX_SEC;
+    unsigned int end = start + _size;
     if (end < start) { /* overflow */
         cJSON_Delete(root);
         close(fd);

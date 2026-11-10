@@ -3,9 +3,10 @@ import subprocess
 import os
 import time
 
-from fastlog_display import display_flog
-from fastlog import make_records
-from compile import shell_cmd, mkdirs, rmfile, set_project, make_tools, prebuild, build
+import inc
+from tools.fastlog_display_rec import display_flog
+from tools.fastlog_make_rec import make_records
+from tools.fastlog_compile import shell_cmd, mkdirs, rmfile, set_project, make_tools, prebuild, build
 
 
 dir = os.path.dirname(__file__)
@@ -20,7 +21,7 @@ make_tools(projPath)
 # prebuild files using 'fastlog'
 includes = f'-I{projPath}/inc'
 prebuild(projPath, "proj/test.c", includes)
-prebuild(projPath, "proj/test01.c", includes)
+prebuild(projPath, "proj/file_a.c", includes)
 
 
 # build 'fastlog' lib
@@ -50,8 +51,8 @@ with open(srcPath, "a") as file:
 cmd = f'gcc -E -c -DLOG_IDX_FAKE_STA=0 {srcPath} > fastlog_out/sys/log_inc.i'
 shell_cmd(cmd)
 
-log_inc_fd = open('fastlog_out/sys/log_inc.i')
-make_records(log_inc_fd, projPath, projName)
+
+make_records('fastlog_out/sys/log_inc.i', projPath, projName)
 
 
 # build 'log_inc.c'
@@ -63,13 +64,13 @@ shell_cmd(cmd)
 # build files using 'fastlog'
 includes += f' -I{os.path.join(projPath, "fastlog_out/sys")} '
 build(projPath, 'proj/test.c', includes)
-build(projPath, 'proj/test01.c', includes)
+build(projPath, 'proj/file_a.c', includes)
 
 cmd = 'gcc ' + ' -o build/test ' + \
-    ' build/test.o build/test01.o build/log_inc.o build/fastlog.o build/shared_mutex.o build/cJSON.o build/config.o'
+    ' build/test.o build/file_a.o build/log_inc.o build/fastlog.o build/shared_mutex.o build/cJSON.o build/config.o'
 shell_cmd(cmd)
 
-cmd = f'./build/test {logName}'
+cmd = f'./build/test {projPath}/fastlog_out/{logName}'
 shell_cmd(cmd)
 
 time.sleep(1)
