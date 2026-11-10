@@ -20,8 +20,15 @@ const char *test_func_1(void) {
 int main(int argc, char **argv) {
     fastlog_t log;
 
+    if (argc != 2) {
+        return -1;
+    }
+
+    char *log_name = argv[1];
     int size = FASTLOG_MODULE_SIZE(test);
-    fastlog_open(&log, "fastlog_out/flog", size);
+    char log_path[32];
+    snprintf(log_path, sizeof(log_path) - 1, "fastlog_out/%s", log_name);
+    fastlog_open(&log, log_path, size);
 
     fastlog(&log, __func__);
 

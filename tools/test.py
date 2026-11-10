@@ -10,8 +10,10 @@ from compile import shell_cmd, mkdirs, rmfile, set_project, make_tools, prebuild
 
 dir = os.path.dirname(__file__)
 projPath = os.path.join(dir, '..')
+projName = "test"
+logName = "hello_world"
 
-set_project(projPath)
+set_project(projPath, logName)
 make_tools(projPath)
 
 
@@ -49,7 +51,7 @@ cmd = f'gcc -E -c -DLOG_IDX_FAKE_STA=0 {srcPath} > fastlog_out/sys/log_inc.i'
 shell_cmd(cmd)
 
 log_inc_fd = open('fastlog_out/sys/log_inc.i')
-make_records(log_inc_fd, projPath)
+make_records(log_inc_fd, projPath, projName)
 
 
 # build 'log_inc.c'
@@ -67,9 +69,9 @@ cmd = 'gcc ' + ' -o build/test ' + \
     ' build/test.o build/test01.o build/log_inc.o build/fastlog.o build/shared_mutex.o build/cJSON.o build/config.o'
 shell_cmd(cmd)
 
-cmd = './build/test'
+cmd = f'./build/test {logName}'
 shell_cmd(cmd)
 
 time.sleep(1)
 
-display_flog("fastlog_out/flog")
+display_flog(projPath, projName, logName)

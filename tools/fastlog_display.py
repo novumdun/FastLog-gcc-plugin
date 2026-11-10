@@ -1,3 +1,4 @@
+#!python3
 import serial.threaded
 import os
 
@@ -8,12 +9,39 @@ from threading import Thread, Semaphore
 from ctypes import *
 import struct
 import re
+import bisect
 
 
-def frame_deal(recordItems, datas):
+def find_largest_smaller(sorted_list, target):
+    # bisect_left finds the index of the first element >= target
+    idx = bisect.bisect_left(sorted_list, target)
+
+    # If idx is 0, every element in the list is >= target
+    if idx == 0:
+        return None
+
+    # The item right before the insertion point is the largest one < target
+    return sorted_list[idx - 1]
+
+
+def get_base(addr, idx_rec):
+    addr = (addr // 0x4000) * 0x4000
+    if addr in idx_rec.keys():
+        return addr
+    else:
+        ret = find_largest_smaller(idx_rec.keys(), addr)
+        if ret:
+            return ret
+        else:
+            exit()
+
+
+def frame_deal(recordItems, datas, idx_rec):
     global cmd_strs, cmd_strs_w, sem
 
-    addr = str(int(datas[2]) + (int(datas[3]) << 8))
+    addr = int(datas[2]) + (int(datas[3]) << 8)
+    addr = addr - get_base(addr, idx_rec)
+    addr = str(addr)
     if addr in recordItems:
         item = recordItems[addr]
         pos = 4
@@ -33,7 +61,7 @@ def frame_deal(recordItems, datas):
                     arg_size += 1
                 arg_size += 1
                 value = datas[pos:pos + arg_size]
-            elif 13 == arg_t:
+            elif arg_t in [13, 14, 15, 16, 17, 18, 19, 20, 21]:
                 value = bytes(item['args_s'][idx], "utf-8")
             elif 1 == (arg_t & 0x01):
                 value = int.from_bytes(
@@ -41,6 +69,8 @@ def frame_deal(recordItems, datas):
             elif 0 == (arg_t & 0x01):
                 value = int.from_bytes(
                     arg_val, byteorder='little', signed=False)
+            else:
+                print(arg_t)
             pos += arg_size
             args_array[idx] = value
 
@@ -75,14 +105,31 @@ def frame_deal(recordItems, datas):
         print(str_array.value.decode('utf-8'))
 
 
-def display_flog(flog_path):
-    dir = os.path.dirname(__file__)
-    recordJsonFile = open(os.path.join(
-        dir, '../fastlog_out/sys/fastlog_lines.json'), mode='r')
+def display_flog(projPath, projName, logName):
+    projIdxRecPath = os.path.join(
+        projPath, f'fastlog_out/sys/{projName}_lines.json')
+    recordJsonFile = open(projIdxRecPath, mode='r')
     recordJson = recordJsonFile.read()
     recordJsonFile.close()
     recordItems = json.loads(recordJson)
 
+    globalIdxRecPath = os.path.join(
+        projPath, f'fastlog_out/{logName}_idx.json')
+    globalRecordJsonFile = open(globalIdxRecPath, mode='r')
+    globalRecordJson = globalRecordJsonFile.read()
+    globalRecordJsonFile.close()
+    globalRecordItems = json.loads(globalRecordJson)
+
+    idx_rec = {}
+    for name, processes in globalRecordItems['clients'].items():
+        for pid, ranges in processes.items():
+            for range in ranges:
+                start = range[0]
+                end = range[1]
+                idx_rec[start] = [name, pid, end]
+    idx_rec = dict(sorted(idx_rec.items()))
+
+    flog_path = os.path.join(projPath, f'fastlog_out/{logName}')
     fp = open(flog_path, mode='rb')
     context = fp.read()
     while (context):
@@ -92,9 +139,13 @@ def display_flog(flog_path):
         elif (size > len(context)):
             print('Err size')
             break
-        frame_deal(recordItems, context[0:size])
+        frame_deal(recordItems, context[0:size], idx_rec)
         context = context[size:]
 
 
 if __name__ == '__main__':
-    display_flog()
+    dir = os.path.dirname(__file__)
+    projPath = os.path.join(dir, '..')
+    projName = "test"
+    logName = "hello_world"
+    display_flog(projPath, projName, logName)

@@ -26,12 +26,13 @@ def rmfile(path):
         os.remove(path)
 
 
-def set_project(projPath):
+def set_project(projPath, logName):
     mkdirs(os.path.join(projPath, 'build'))
     mkdirs(os.path.join(projPath, 'fastlog_out/tools'))
 
     rmfile(os.path.join(projPath, 'fastlog_out/sys/log_inc.c'))
     rmfile(os.path.join(projPath, 'fastlog_out/sys/log_macro.h'))
+    rmfile(os.path.join(projPath, f'fastlog_out/{logName}'))
 
     srcPath = os.path.join(projPath, 'fastlog_out/sys/log_inc.c')
     with open(srcPath, "w") as f:
