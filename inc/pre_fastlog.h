@@ -10,6 +10,8 @@ typedef struct fastlog {
     int idx_base;
     int idx_size;
 
+    char project_name[64];
+
     char log_file_path[PATH_MAX];
     char *log_file_name;
     int log_fd;

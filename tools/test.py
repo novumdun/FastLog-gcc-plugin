@@ -11,8 +11,8 @@ from tools.fastlog_compile import shell_cmd, mkdirs, rmfile, set_project, make_t
 
 dir = os.path.dirname(__file__)
 projPath = os.path.join(dir, '..')
-projName = "test"
-logName = "hello_world"
+projName = "main"
+logName = "hello.log"
 
 set_project(projPath, logName)
 make_tools(projPath)
@@ -47,7 +47,7 @@ shell_cmd(cmd)
 # generate records for 'fastlog'
 srcPath = os.path.join(projPath, 'fastlog_out/sys/log_inc.c')
 with open(srcPath, "a") as file:
-    file.write("\nint FASTLOG_MODULE_SIZE_test=__COUNTER__;")
+    file.write(f"\nint FASTLOG_MODULE_SIZE_{projName}=__COUNTER__;")
 cmd = f'gcc -E -c -DLOG_IDX_FAKE_STA=0 {srcPath} > fastlog_out/sys/log_inc.i'
 shell_cmd(cmd)
 
@@ -62,7 +62,7 @@ shell_cmd(cmd)
 
 
 # build files using 'fastlog'
-includes += f' -I{os.path.join(projPath, "fastlog_out/sys")} '
+includes += f' -I{os.path.join(projPath, "fastlog_out/sys")} -D__FASTLOG_MOD_NAME__={projName} '
 build(projPath, 'proj/test.c', includes)
 build(projPath, 'proj/file_a.c', includes)
 
@@ -75,4 +75,4 @@ shell_cmd(cmd)
 
 time.sleep(1)
 
-display_flog(projPath, projName, logName)
+display_flog({projName:projPath}, logName)

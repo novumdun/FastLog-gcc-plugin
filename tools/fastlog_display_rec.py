@@ -107,16 +107,18 @@ def frame_deal(recordItems, datas, base_dict, base_list):
                          args_array[7],
                          args_array[8],
                          args_array[9])
-        print(str_array.value.decode('utf-8'))
+        print(str_array.value.decode('utf-8'), "\t\t", base_dict[base], item['file'], item['line'])
 
 
-def display_flog(projPath, projName, logName):
-    projIdxRecPath = os.path.join(
-        projPath, f'fastlog_out/sys/{projName}_lines.json')
-    recordJsonFile = open(projIdxRecPath, mode='r')
-    recordJson = recordJsonFile.read()
-    recordJsonFile.close()
-    recordItems = json.loads(recordJson)
+def display_flog(projects, logName):
+    recordItems = dict()
+    for projName, projPath in projects.items():
+        projIdxRecPath = os.path.join(
+            projPath, f'fastlog_out/sys/{projName}_lines.json')
+        recordJsonFile = open(projIdxRecPath, mode='r')
+        recordJson = recordJsonFile.read()
+        recordJsonFile.close()
+        recordItems.update(json.loads(recordJson))
 
     globalIdxRecPath = os.path.join(
         projPath, f'fastlog_out/{logName}_idx.json')
@@ -127,13 +129,14 @@ def display_flog(projPath, projName, logName):
 
     base_dict = {}
     base_list = []
-    for name, processes in globalRecordItems['clients'].items():
-        for pid, ranges in processes.items():
-            for range in ranges:
-                start = range[0]
-                end = range[1]
-                base_dict[start] = [name, pid, end]
-                base_list.append(start)
+    for pname, pids in globalRecordItems['clients'].items():
+        for pid, modules in pids.items():
+            for module, ranges in modules.items():
+                for range in ranges:
+                    start = range[0]
+                    end = range[1]
+                    base_dict[start] = [pname, pid, module, start, end]
+                    base_list.append(start)
     base_list = sorted(base_list)
 
     flog_path = os.path.join(projPath, f'fastlog_out/{logName}')
@@ -155,4 +158,4 @@ if __name__ == '__main__':
     projPath = os.path.join(dir, '..')
     projName = "test"
     logName = "hello_world"
-    display_flog(projPath, projName, logName)
+    display_flog({projName:projPath}, logName)

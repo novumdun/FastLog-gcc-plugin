@@ -26,7 +26,7 @@ static inline unsigned int fastlog_get_idx_base(fastlog_t *log) {
     return log->idx_base;
 }
 
-extern int fastlog_open(fastlog_t *log, const char *str, int size);
+extern int fastlog_open(fastlog_t *log, const char *project_name, const char *log_file_path, int size);
 extern int fastlog_write(fastlog_t *log, struct autogen_log_stru *buff, int len);
 extern void fastlog_close(fastlog_t *log);
 

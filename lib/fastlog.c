@@ -44,7 +44,7 @@ char *get_base_name(char *path) {
     return p;
 }
 
-int fastlog_open(fastlog_t *log, const char *log_file_path, int size) {
+int fastlog_open(fastlog_t *log, const char *project_name, const char *log_file_path, int size) {
     if (log == NULL) {
         return -1;
     }
@@ -58,6 +58,7 @@ int fastlog_open(fastlog_t *log, const char *log_file_path, int size) {
     }
 
     log->idx_cnt = size;
+    strncpy(log->project_name, project_name, sizeof(log->project_name));
     strncpy(log->log_file_path, log_file_path, sizeof(log->log_file_path));
     log->log_file_name = get_base_name(log->log_file_path);
 

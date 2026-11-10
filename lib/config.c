@@ -223,7 +223,7 @@ int fastlog_get_idx_base_from_config(fastlog_t *log) {
     ensure_schema(root);
 
     /* 1. Prune dead PIDs */
-    // prune_dead_pids(root);
+    prune_dead_pids(root);
 
     /* 2. Locate / create our client object */
     cJSON *clients = cJSON_GetObjectItem(root, "clients");
@@ -233,11 +233,18 @@ int fastlog_get_idx_base_from_config(fastlog_t *log) {
         cJSON_AddItemToObject(clients, proc_name, client);
     }
 
-    /* 3. Locate / create our pid array */
-    cJSON *pid_arr = cJSON_GetObjectItem(client, pid_str);
-    if (!pid_arr) {
-        pid_arr = cJSON_CreateArray();
-        cJSON_AddItemToObject(client, pid_str, pid_arr);
+    /* 3. Locate / create our pid object (changed from array to object) */
+    cJSON *pid_obj = cJSON_GetObjectItem(client, pid_str);
+    if (!pid_obj) {
+        pid_obj = cJSON_CreateObject();
+        cJSON_AddItemToObject(client, pid_str, pid_obj);
+    }
+
+    /* Locate / create project object inside the PID object */
+    cJSON *proj_obj = cJSON_GetObjectItem(pid_obj, log->project_name);
+    if (!proj_obj) {
+        proj_obj = cJSON_CreateArray();
+        cJSON_AddItemToObject(pid_obj, log->project_name, proj_obj);
     }
 
     /* 4. Allocate from the high-water mark */
@@ -254,11 +261,11 @@ int fastlog_get_idx_base_from_config(fastlog_t *log) {
     log->idx_base = start;
     log->idx_cnt = _size;
 
-    /* Append [start, end] */
+    /* Append [start, end] using log->project_name instead of "ssss" */
     cJSON *array = cJSON_CreateArray();
     cJSON_AddItemToArray(array, cJSON_CreateNumber(start));
     cJSON_AddItemToArray(array, cJSON_CreateNumber(end));
-    cJSON_AddItemToArray(pid_arr, array);
+    cJSON_AddItemToArray(proj_obj, array);
 
     /* Update next_index */
     cJSON_SetNumberValue(next_item, end);

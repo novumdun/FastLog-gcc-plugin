@@ -11,7 +11,11 @@
 #define _LINE_STR(x)  __LINE_STR(x)
 #define LINE_STR      _LINE_STR(__LINE__)
 
-extern int FASTLOG_MODULE_SIZE(test); // You need to add this to every module using 'fastlog'
+#define _STR(x)       #x
+#define STR(x)        _STR(x)
+
+extern int FASTLOG_MODULE_SIZE(__FASTLOG_MOD_NAME__); // You need to add this to every module using 'fastlog'
+const char project_name[] = STR(__FASTLOG_MOD_NAME__);
 extern int file_a_test(fastlog_t *log);
 
 const char *test_func_1(void) {
@@ -27,8 +31,8 @@ int main(int argc, char **argv) {
     }
 
     char *log_path = argv[1];
-    int size = FASTLOG_MODULE_SIZE(test);
-    fastlog_open(&log, log_path, size);
+    int size = FASTLOG_MODULE_SIZE(__FASTLOG_MOD_NAME__);
+    fastlog_open(&log, project_name, log_path, size);
 
     fastlog(&log, __func__);
     fastlog(&log, __FUNCTION__ );
