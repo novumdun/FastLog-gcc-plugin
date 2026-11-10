@@ -10,6 +10,7 @@ from ctypes import *
 import struct
 import re
 import bisect
+from collections import OrderedDict
 
 
 def find_largest_smaller(sorted_list, target):
@@ -24,27 +25,29 @@ def find_largest_smaller(sorted_list, target):
     return sorted_list[idx - 1]
 
 
-def get_base(addr, idx_rec):
+def get_base(addr, base_list):
     addr = (addr // 0x4000) * 0x4000
-    if addr in idx_rec.keys():
+    if addr in base_list:
         return addr
     else:
-        ret = find_largest_smaller(idx_rec.keys(), addr)
+        ret = find_largest_smaller(base_list, addr)
         if ret:
             return ret
         else:
             exit()
 
 
-def frame_deal(recordItems, datas, idx_rec):
+def frame_deal(recordItems, datas, base_dict, base_list):
     global cmd_strs, cmd_strs_w, sem
 
-    addr = int(datas[2]) + (int(datas[3]) << 8)
-    addr = addr - get_base(addr, idx_rec)
+    addr = int(datas[2]) + (int(datas[3]) << 8) + \
+        (int(datas[4]) << 16) + (int(datas[5]) << 24)
+    base = get_base(addr, base_list)
+    addr = addr - base
     addr = str(addr)
     if addr in recordItems:
         item = recordItems[addr]
-        pos = 4
+        pos = 2 + 4
         # item_str = item_str.replace("%s", "%p")
         args_array = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         for idx in range(0, item['argc']):
@@ -120,14 +123,16 @@ def display_flog(projPath, projName, logName):
     globalRecordJsonFile.close()
     globalRecordItems = json.loads(globalRecordJson)
 
-    idx_rec = {}
+    base_dict = {}
+    base_list = []
     for name, processes in globalRecordItems['clients'].items():
         for pid, ranges in processes.items():
             for range in ranges:
                 start = range[0]
                 end = range[1]
-                idx_rec[start] = [name, pid, end]
-    idx_rec = dict(sorted(idx_rec.items()))
+                base_dict[start] = [name, pid, end]
+                base_list.append(start)
+    base_list = sorted(base_list)
 
     flog_path = os.path.join(projPath, f'fastlog_out/{logName}')
     fp = open(flog_path, mode='rb')
@@ -139,7 +144,7 @@ def display_flog(projPath, projName, logName):
         elif (size > len(context)):
             print('Err size')
             break
-        frame_deal(recordItems, context[0:size], idx_rec)
+        frame_deal(recordItems, context[0:size], base_dict, base_list)
         context = context[size:]
 
 

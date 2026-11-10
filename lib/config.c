@@ -201,7 +201,7 @@ int fastlog_get_idx_base_from_config(fastlog_t *log) {
         return ret;
     }
 
-    char index_file_path[64];
+    char index_file_path[PATH_MAX];
     snprintf(index_file_path, sizeof(index_file_path) - 1, "%s_idx.json", log_file_path);
     int fd = open(index_file_path, O_RDWR | O_CREAT, 0666);
     if (fd < 0) {
@@ -242,7 +242,7 @@ int fastlog_get_idx_base_from_config(fastlog_t *log) {
     /* 4. Allocate from the high-water mark */
     cJSON *next_item = cJSON_GetObjectItem(root, "next_index");
     int start = next_item ? next_item->valueint : IDX_START;
-    int _size = ((size % IDX_SEC) + 1) * IDX_SEC;
+    int _size = ((size / IDX_SEC) + 1) * IDX_SEC;
     int end = start + _size;
     if (end < start) { /* overflow */
         cJSON_Delete(root);

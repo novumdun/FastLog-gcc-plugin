@@ -19,7 +19,7 @@
 
 struct autogen_log_stru {
     unsigned short len;
-    unsigned short idx;
+    unsigned int idx;
 } __attribute__((__packed__));
 
 static inline int fastlog_get_idx_base(fastlog_t *log) {

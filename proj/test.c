@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 #include "fastlog.h"
 #if COMPILE_PASS != COMPILE_PASS_GEN_MACRO
@@ -19,6 +20,7 @@ const char *test_func_1(void) {
 
 int main(int argc, char **argv) {
     fastlog_t log;
+    memset(&log, 0, sizeof(log));
 
     if (argc != 2) {
         return -1;
@@ -26,8 +28,8 @@ int main(int argc, char **argv) {
 
     char *log_name = argv[1];
     int size = FASTLOG_MODULE_SIZE(test);
-    char log_path[32];
-    snprintf(log_path, sizeof(log_path) - 1, "fastlog_out/%s", log_name);
+    char log_path[PATH_MAX];
+    snprintf(log_path, sizeof(log_path) - 1, "/home/bdeng/workspaces/github_projects/FastLog-gcc-plugin/fastlog_out/%s", log_name);
     fastlog_open(&log, log_path, size);
 
     fastlog(&log, __func__);
@@ -52,6 +54,10 @@ int main(int argc, char **argv) {
     fastlog(&log, "%d %s", __LINE__, p);
 
     fastlog(&log, "%d %x", __LINE__, __LINE__ + 0xFFFF0000);
+
+    char mut[] = "hello";
+    mut[0] = 'o';
+    fastlog(&log, mut);
 
     test01(&log);
     return 0;
